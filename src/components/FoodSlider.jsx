@@ -82,7 +82,7 @@ export default function FoodSlider() {
         scrub: isMobile ? 0.5 : 1.9,
         anticipatePin: isMobile ? 0 : 1,
         start: 'top top',
-        end: () => '+=' + window.innerHeight * (panels.length - 1) * (isMobile ? 2.5 : 1),
+        end: () => '+=' + window.innerHeight * (panels.length - 1) * (isMobile ? 1.5 : 1),
         invalidateOnRefresh: true,
       },
     });
@@ -138,24 +138,24 @@ export default function FoodSlider() {
                 <div className="absolute inset-0 bg-gradient-to-t from-ink-900/70 via-transparent to-transparent" />
               </div>
 
-              <div className="relative z-10 max-w-3xl px-8 sm:px-16 lg:px-24">
-                <div className="fs-tag inline-flex items-center gap-3 mb-6">
+              <div className="relative z-10 max-w-3xl px-6 sm:px-16 lg:px-24 w-full">
+                <div className="fs-tag inline-flex items-center gap-3 mb-3 md:mb-6">
                   <span className="w-10 h-px bg-brand-500" />
                   <span className="text-brand-400 text-xs tracking-[0.3em] font-semibold uppercase">
                     {String(idx + 1).padStart(2, '0')} · {s.tag}
                   </span>
                 </div>
-                <h3 className="fs-title font-display text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-[0.9] tracking-wide">
+                <h3 className="fs-title font-display text-4xl sm:text-7xl md:text-8xl lg:text-9xl leading-[0.9] tracking-wide">
                   {s.title}
                 </h3>
-                {s.desc && <p className="fs-desc mt-6 text-lg md:text-xl text-white/70 max-w-xl leading-relaxed">{s.desc}</p>}
-                <div className="fs-price mt-8 flex flex-wrap items-center gap-6">
-                  <span className="font-display text-4xl text-brand-400">{s.price}</span>
+                {s.desc && <p className="fs-desc hidden sm:block mt-6 text-lg md:text-xl text-white/70 max-w-xl leading-relaxed">{s.desc}</p>}
+                <div className="fs-price mt-5 md:mt-8 flex flex-wrap items-center gap-4 md:gap-6">
+                  <span className="font-display text-3xl md:text-4xl text-brand-400">{s.price}</span>
                   <button
                     onClick={() => handleAddClick(s)}
-                    className="btn-primary px-7 py-3 text-base flex items-center gap-2"
+                    className="btn-primary px-5 py-2.5 md:px-7 md:py-3 text-sm md:text-base flex items-center gap-2"
                   >
-                    <Icon name="cart" className="w-5 h-5" />
+                    <Icon name="cart" className="w-4 h-4 md:w-5 md:h-5" />
                     In den Warenkorb
                   </button>
                 </div>
