@@ -34,12 +34,12 @@ export default function Home() {
     
     // Load home hero
     api.get('/site-images/home_hero').then((r) => {
-      if (r.data?.url) setHomeHero(r.data.url.startsWith('/uploads/') ? `http://localhost:4000${r.data.url}` : r.data.url);
+      if (r.data?.url) setHomeHero(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
 
     // Load about story image shared with About page
     api.get('/site-images/about_story').then((r) => {
-      if (r.data?.url) setAboutStory(r.data.url.startsWith('/uploads/') ? `http://localhost:4000${r.data.url}` : r.data.url);
+      if (r.data?.url) setAboutStory(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
   }, []);
 
@@ -368,7 +368,7 @@ export default function Home() {
               <Link to="/gallery" className="gallery-featured gallery-item relative overflow-hidden rounded-3xl flex-[2] cursor-pointer group bg-white/5 block">
                 {(() => {
                   const g = galleryImages[0];
-                  const src = g.url.startsWith('/uploads/') ? `http://localhost:4000${g.url}` : g.url;
+                  const src = g.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${g.url}` : g.url;
                   return (
                     <>
                       <img src={src} alt={g.alt || ''} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -392,7 +392,7 @@ export default function Home() {
                   style={{ gridTemplateRows: `repeat(${Math.ceil(right.length / rightCols)}, 1fr)` }}
                 >
                   {right.map((g) => {
-                    const src = g.url.startsWith('/uploads/') ? `http://localhost:4000${g.url}` : g.url;
+                    const src = g.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${g.url}` : g.url;
                     return (
                       <Link to="/gallery" key={g.id} className="gallery-item group relative overflow-hidden rounded-2xl bg-white/5 cursor-pointer block">
                         <img src={src} alt={g.alt || ''} loading="lazy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />

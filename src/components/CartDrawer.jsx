@@ -4,7 +4,7 @@ import gsap from 'gsap';
 import { useCart, useCartUI } from '../store/cart';
 import Icon from './Icon';
 
-const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
 export default function CartDrawer() {
   const open = useCartUI((s) => s.open);

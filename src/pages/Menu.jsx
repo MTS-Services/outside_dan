@@ -20,7 +20,7 @@ export default function Menu() {
 
   useEffect(() => {
     api.get('/site-images/menu_hero').then((r) => {
-      if (r.data?.url) setMenuHero(r.data.url.startsWith('/uploads/') ? `http://localhost:4000${r.data.url}` : r.data.url);
+      if (r.data?.url) setMenuHero(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
   }, []);
 

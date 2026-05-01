@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useCart, useCartUI } from '../store/cart';
 import ExtrasModal from './ExtrasModal';
 
-const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
 export default function MenuItemCard({ item }) {
   const add = useCart((s) => s.add);

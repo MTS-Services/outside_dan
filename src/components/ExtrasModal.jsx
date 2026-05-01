@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import Icon from './Icon';
 
-const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
 /** Modal that lets the customer pick optional extras before adding an item to cart.
  *  Up to 10 optional extras (server enforced). All optional.

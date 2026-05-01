@@ -35,7 +35,7 @@ const HERO_SLOTS = [
 
 function siteImgSrc(url) {
   if (!url) return null;
-  return url.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  return url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 }
 
 export default function AdminGallery() {
@@ -259,7 +259,7 @@ export default function AdminGallery() {
               <div key={img.id} className="group relative rounded-2xl overflow-hidden bg-ink-800 border border-white/[0.06] shadow-sm hover:border-white/20 hover:shadow-xl hover:shadow-black/30 transition-all duration-300">
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src={img.url.startsWith('/uploads/') ? `http://localhost:4000${img.url}` : img.url}
+                    src={img.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${img.url}` : img.url}
                     alt={img.alt || ''}
                     className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-out"
                   />

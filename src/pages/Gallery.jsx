@@ -8,7 +8,7 @@ import api from '../api/client';
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 function imgSrc(p) {
-  return p.url.startsWith('/uploads/') ? `http://localhost:4000${p.url}` : p.url;
+  return p.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${p.url}` : p.url;
 }
 
 export default function Gallery() {

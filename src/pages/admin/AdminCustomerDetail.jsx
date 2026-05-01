@@ -45,7 +45,7 @@ function formatPhone(phone, country) {
 }
 function imgSrc(url) {
   if (!url) return null;
-  return url.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  return url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 }
 
 export default function AdminCustomerDetail() {

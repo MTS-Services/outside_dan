@@ -24,12 +24,12 @@ export default function About() {
   useEffect(() => {
     // Load hero image
     api.get('/site-images/about_hero').then((r) => {
-      if (r.data?.url) setAboutHero(r.data.url.startsWith('/uploads/') ? `http://localhost:4000${r.data.url}` : r.data.url);
+      if (r.data?.url) setAboutHero(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
     
     // Load story image
     api.get('/site-images/about_story').then((r) => {
-      if (r.data?.url) setAboutStory(r.data.url.startsWith('/uploads/') ? `http://localhost:4000${r.data.url}` : r.data.url);
+      if (r.data?.url) setAboutStory(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
     
     // Load product images: try bestsellers, then from different categories
@@ -57,7 +57,7 @@ export default function About() {
         selectedItems = [...selectedItems, ...remaining].slice(0, 4);
       }
 
-      const images = selectedItems.map(i => i.imageUrl.startsWith('/uploads/') ? `http://localhost:4000${i.imageUrl}` : i.imageUrl);
+      const images = selectedItems.map(i => i.imageUrl.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${i.imageUrl}` : i.imageUrl);
       
       if (images.length > 0) {
         setKitchenPics(images);
