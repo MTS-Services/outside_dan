@@ -89,7 +89,7 @@ export default function FoodSlider() {
         .map((s) => panel.querySelector(s))
         .filter(Boolean);
       if (img) {
-        gsap.fromTo(img, { scale: 1.08, xPercent: 5 }, {
+        gsap.fromTo(img, { xPercent: 5 }, {
           scale: 1, xPercent: -5, ease: 'none',
           scrollTrigger: { trigger: panel, containerAnimation: tween, start: 'left right', end: 'right left', scrub: true },
         });
