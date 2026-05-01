@@ -76,7 +76,14 @@
 
 /* Parallax hero overlay */
 .hero-img-overlay {
-  background: linear-gradient(to right, rgba(5,5,5,0.92) 35%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.2) 100%);
+  /* mobile: darken top (text area), let food show at bottom */
+  background: linear-gradient(to bottom, rgba(5,5,5,0.90) 0%, rgba(5,5,5,0.60) 55%, rgba(5,5,5,0.25) 100%);
+}
+@media (min-width: 640px) {
+  .hero-img-overlay {
+    /* desktop: darken left (text area), let food show on right */
+    background: linear-gradient(to right, rgba(5,5,5,0.92) 35%, rgba(5,5,5,0.55) 70%, rgba(5,5,5,0.2) 100%);
+  }
 }
 
 /* Gallery hover */

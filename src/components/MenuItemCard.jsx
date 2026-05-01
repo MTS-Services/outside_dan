@@ -5,11 +5,33 @@ import ExtrasModal from './ExtrasModal';
 
 const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
+function TagBadge({ tag }) {
+  const [failed, setFailed] = useState(false);
+  const tagImg = tag.imageUrl ? imgSrc(tag.imageUrl) : null;
+  if (tagImg && !failed) {
+    return (
+      <img
+        src={tagImg}
+        alt={tag.name}
+        title={tag.name}
+        className="w-12 h-12 shrink-0 object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <span className="chip text-xs font-semibold text-white bg-brand-500/80">
+      {tag.name}
+    </span>
+  );
+}
+
 export default function MenuItemCard({ item }) {
   const add = useCart((s) => s.add);
   const openCart = useCartUI((s) => s.openDrawer);
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const extras = (item.extras || [])
     .map((me) => me.extra ? me.extra : me)
@@ -34,12 +56,13 @@ export default function MenuItemCard({ item }) {
   return (
     <div className="card overflow-hidden group flex flex-col">
       <div className="relative aspect-[4/3] overflow-hidden">
-        {item.imageUrl ? (
+        {item.imageUrl && !imgFailed ? (
           <img
             src={imgSrc(item.imageUrl)}
             alt={item.name}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            onError={() => setImgFailed(true)}
           />
         ) : (
           <div className="w-full h-full bg-ink-700" />
@@ -49,23 +72,7 @@ export default function MenuItemCard({ item }) {
           {item.isSpicy && <span className="chip bg-red-500/80 text-white text-xs">Scharf</span>}
           {(item.tags || []).slice(0, 2).map((mt) => {
             const tag = mt.tag || mt;
-            const tagImg = tag.imageUrl ? imgSrc(tag.imageUrl) : null;
-            return tagImg ? (
-              <img
-                key={tag.id}
-                src={tagImg}
-                alt={tag.name}
-                title={tag.name}
-                className="w-12 h-12 shrink-0 object-contain"
-              />
-            ) : (
-              <span
-                key={tag.id}
-                className="chip text-xs font-semibold text-white bg-brand-500/80"
-              >
-                {tag.name}
-              </span>
-            );
+            return <TagBadge key={tag.id} tag={tag} />;
           })}
         </div>
         <div className="absolute bottom-3 right-3 bg-brand-500 text-white font-bold px-3 py-1 rounded-full shadow-glow">

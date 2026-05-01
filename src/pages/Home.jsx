@@ -370,9 +370,9 @@ export default function Home() {
           const right = galleryImages.slice(1, 5);
           const rightCols = right.length <= 2 ? 1 : 2;
           return (
-            <div className="gallery-grid flex gap-3 h-[500px] lg:h-[560px]">
+            <div className="gallery-grid flex flex-col sm:flex-row gap-3 sm:h-[500px] lg:h-[560px]">
               {/* Featured left — links to /gallery */}
-              <Link to="/gallery" className="gallery-featured gallery-item relative overflow-hidden rounded-3xl flex-[2] cursor-pointer group bg-white/5 block">
+              <Link to="/gallery" className="gallery-featured gallery-item relative overflow-hidden rounded-3xl flex-[2] cursor-pointer group bg-white/5 block h-[280px] sm:h-auto">
                 {(() => {
                   const g = galleryImages[0];
                   const src = g.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${g.url}` : g.url;
@@ -395,7 +395,7 @@ export default function Home() {
 
               {/* Right grid — each links to /gallery */}
               {right.length > 0 && (
-                <div className={`flex-1 grid gap-3 ${rightCols === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
+                <div className={`flex-1 grid gap-3 h-[200px] sm:h-auto ${rightCols === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
                   style={{ gridTemplateRows: `repeat(${Math.ceil(right.length / rightCols)}, 1fr)` }}
                 >
                   {right.map((g) => {

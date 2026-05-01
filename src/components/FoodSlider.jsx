@@ -70,31 +70,48 @@ export default function FoodSlider() {
   useGSAP(() => {
     const panels = gsap.utils.toArray('.fs-panel', root.current);
     if (!panels.length) return;
-    const tween = gsap.to(panels, {
-      xPercent: -100 * (panels.length - 1),
-      ease: 'none',
-      scrollTrigger: {
-        trigger: root.current,
-        pin: true, pinSpacing: true,
-        scrub: 1.9,
-        anticipatePin: 1,
-        start: 'top top',
-        end: () => '+=' + window.innerHeight * (panels.length - 1),
-        invalidateOnRefresh: true,
-      },
-    });
-    panels.forEach((panel) => {
-      const img = panel.querySelector('.fs-img');
-      const els = ['.fs-tag', '.fs-title', '.fs-desc', '.fs-price'].map((s) => panel.querySelector(s));
-      gsap.fromTo(img, { scale: 1.2, xPercent: 8 }, {
-        scale: 1, xPercent: -8, ease: 'none',
-        scrollTrigger: { trigger: panel, containerAnimation: tween, start: 'left right', end: 'right left', scrub: true },
+
+    const mm = gsap.matchMedia();
+
+    // Desktop only — GSAP pin horizontal scroll
+    mm.add('(min-width: 768px)', () => {
+      const tween = gsap.to(panels, {
+        xPercent: -100 * (panels.length - 1),
+        ease: 'none',
+        scrollTrigger: {
+          trigger: root.current,
+          pin: true,
+          pinSpacing: true,
+          scrub: 1.9,
+          anticipatePin: 1,
+          start: 'top top',
+          end: () => '+=' + window.innerHeight * (panels.length - 1),
+          invalidateOnRefresh: true,
+        },
       });
-      gsap.from(els, {
-        yPercent: 60, opacity: 0, stagger: 0.08, duration: 0.9, ease: 'power3.out',
-        scrollTrigger: { trigger: panel, containerAnimation: tween, start: 'left 65%', toggleActions: 'play none none reverse' },
+      panels.forEach((panel) => {
+        const img = panel.querySelector('.fs-img');
+        const els = ['.fs-tag', '.fs-title', '.fs-desc', '.fs-price']
+          .map((s) => panel.querySelector(s))
+          .filter(Boolean);
+        // Only translate X — no scale, avoids blinking gaps
+        if (img) {
+          gsap.fromTo(img, { xPercent: 5 }, {
+            xPercent: -5, ease: 'none',
+            scrollTrigger: { trigger: panel, containerAnimation: tween, start: 'left right', end: 'right left', scrub: true },
+          });
+        }
+        if (els.length) {
+          gsap.from(els, {
+            yPercent: 50, opacity: 0, stagger: 0.08, duration: 0.9, ease: 'power3.out',
+            scrollTrigger: { trigger: panel, containerAnimation: tween, start: 'left 65%', toggleActions: 'play none none reverse' },
+          });
+        }
       });
+      return () => {};
     });
+
+    return () => mm.revert();
   }, { scope: root, dependencies: [slides.length] });
 
   if (slides.length === 0) return null;
@@ -114,15 +131,21 @@ export default function FoodSlider() {
         </div>
       </div>
 
-      {/* Pinned slider — exactly h-screen so pin fits the viewport perfectly */}
+      {/* Pinned slider: desktop = GSAP pin, mobile = native CSS scroll-snap */}
       <section ref={root} className="relative bg-ink-900 w-full">
-        <div className="relative h-screen flex flex-nowrap overflow-hidden">
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
+        {/* Mobile hint */}
+        <div className="flex md:hidden justify-center py-2 text-[10px] tracking-[0.25em] text-white/40 uppercase select-none">
+          Wischen · Essen · Wiederholen
+        </div>
+        <div className="relative h-screen flex flex-nowrap overflow-x-auto md:overflow-hidden
+          snap-x snap-mandatory md:snap-none
+          [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="hidden md:block absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
             <div className="text-[11px] tracking-[0.3em] text-white/50 uppercase">Scrollen · Essen · Wiederholen</div>
           </div>
 
           {slides.map((s, idx) => (
-            <article key={`${s.title}-${idx}`} className="fs-panel relative h-full flex items-center will-change-transform" style={{ flex: '0 0 100%', width: '100%' }}>
+            <article key={`${s.title}-${idx}`} className="fs-panel snap-start snap-always relative h-full flex items-center flex-shrink-0 will-change-transform" style={{ flex: '0 0 100%', width: '100%' }}>
               <div className="absolute inset-0 overflow-hidden">
                 <img src={s.img} alt={s.title} className="fs-img absolute inset-0 w-full h-full object-cover will-change-transform" />
                 <div className="absolute inset-0 bg-gradient-to-r from-ink-900/95 via-ink-900/55 to-ink-900/15" />
