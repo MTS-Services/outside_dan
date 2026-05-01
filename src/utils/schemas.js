@@ -56,11 +56,11 @@ const category = Joi.object({
   name: Joi.string().min(2).max(80).required(),
   slug: Joi.string().lowercase().pattern(/^[a-z0-9-]+$/).required(),
   description: Joi.string().allow('', null),
-  imageUrl: Joi.string().uri().allow('', null),
+  imageUrl: Joi.string().allow('', null),
   sortOrder: Joi.number().integer().default(0),
   isActive: Joi.boolean().default(true),
   showOnHome: Joi.boolean().default(false),
-  homeImageUrl: Joi.string().uri().allow('', null),
+  homeImageUrl: Joi.string().allow('', null),
 });
 
 const tag = Joi.object({

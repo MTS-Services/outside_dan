@@ -18,7 +18,7 @@ async function create({ url, alt, sortOrder, showOnHome }) {
       url,
       alt: alt || null,
       sortOrder: sortOrder ?? 0,
-      showOnHome: showOnHome !== false,
+      showOnHome: showOnHome === true,
     },
   });
 }
