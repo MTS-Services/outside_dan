@@ -176,7 +176,7 @@ export default function Home() {
   return (
     <div ref={main}>
       {/* ── HERO ─────────────────────────────────────────── */}
-      <section id="home" className="hero-section relative min-h-[90vh] flex items-center overflow-hidden">
+      <section id="home" className="hero-section relative min-h-[100svh] min-h-[90vh] flex items-start sm:items-center overflow-hidden">
         {/* Background image */}
         {homeHero && (
           <img
@@ -187,12 +187,12 @@ export default function Home() {
         )}
         <div className="hero-img-overlay absolute inset-0" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 sm:py-28">
           <div className="max-w-2xl">
-            <span className="hero-anim chip bg-brand-500/30 text-brand-200 mb-6 text-sm tracking-widest uppercase inline-flex items-center gap-2">
+            <span className="hero-anim chip bg-brand-500/30 text-brand-200 mb-4 sm:mb-6 text-sm tracking-widest uppercase inline-flex items-center gap-2">
               <Icon name="star" className="w-3.5 h-3.5" /> Jetzt Lieferung in ganz Wien
             </span>
-            <h1 className="hero-anim font-display text-6xl md:text-8xl leading-[0.9] tracking-wide mt-4">
+            <h1 className="hero-anim font-display text-5xl sm:text-6xl md:text-8xl leading-[0.9] tracking-wide mt-3 sm:mt-4">
               <span className="inline-block overflow-hidden">
                 {'BEAST'.split('').map((c, i) => (
                   <span key={i} className="beast-letter inline-block">{c}</span>
@@ -218,7 +218,7 @@ export default function Home() {
                 Speisekarte ansehen
               </Link>
             </div>
-            <div className="hero-anim mt-12 flex flex-wrap gap-10">
+            <div className="hero-anim mt-8 sm:mt-12 flex flex-wrap gap-6 sm:gap-10">
               <Stat n="20K+" l="Zufriedene Kunden" />
               <Stat n="4,9" l="Durchschnittsbewertung" icon="star" />
               <Stat n="35 Min" l="Ø Lieferzeit" />

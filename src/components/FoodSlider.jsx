@@ -137,9 +137,10 @@ export default function FoodSlider() {
         <div className="flex md:hidden justify-center py-2 text-[10px] tracking-[0.25em] text-white/40 uppercase select-none">
           Wischen · Essen · Wiederholen
         </div>
-        <div className="relative h-screen flex flex-nowrap overflow-x-auto md:overflow-hidden
-          snap-x snap-mandatory md:snap-none
-          [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          className="relative h-screen flex flex-nowrap overflow-x-scroll md:overflow-hidden snap-x snap-mandatory md:snap-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+        >
           <div className="hidden md:block absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
             <div className="text-[11px] tracking-[0.3em] text-white/50 uppercase">Scrollen · Essen · Wiederholen</div>
           </div>
