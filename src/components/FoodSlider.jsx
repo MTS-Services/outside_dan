@@ -5,7 +5,8 @@ import { useGSAP } from '@gsap/react';
 import toast from 'react-hot-toast';
 import api from '../api/client';
 import Icon from './Icon';
-import { useCart } from '../store/cart';
+import { useCart, useCartUI } from '../store/cart';
+import ExtrasModal from './ExtrasModal';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -18,6 +19,28 @@ export default function FoodSlider() {
   const marqueeRef = useRef(null);
   const [slides, setSlides] = useState([]);
   const addToCart = useCart((s) => s.add);
+  const openCartDrawer = useCartUI((s) => s.openDrawer);
+  const [modalItem, setModalItem] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMounted, setModalMounted] = useState(false);
+
+  const handleAddClick = (s) => {
+    setModalItem(s);
+    setModalMounted(true);
+    setModalOpen(true);
+  };
+
+  const handleConfirm = (selectedExtras = [], qty = 1, notes = '') => {
+    if (!modalItem) return;
+    addToCart(
+      { id: modalItem.id, name: modalItem.title, price: modalItem.rawPrice, imageUrl: modalItem.imageUrl },
+      selectedExtras,
+      qty,
+      notes
+    );
+    toast.success(`${modalItem.title} zum Warenkorb hinzugefügt`);
+    openCartDrawer();
+  };
 
   useEffect(() => {
     api.get('/menu/slider-items').then((r) => {
@@ -30,6 +53,7 @@ export default function FoodSlider() {
         price: `€ ${Number(item.price).toFixed(2)}`,
         img: imgSrc(item.imageUrl),
         imageUrl: imgSrc(item.imageUrl),
+        extras: (item.extras || []).map((me) => me.extra ? me.extra : me).filter((e) => e && e.isActive !== false),
       }));
       setSlides(built);
     }).catch(() => setSlides([]));
@@ -119,10 +143,7 @@ export default function FoodSlider() {
                 <div className="fs-price mt-8 flex flex-wrap items-center gap-6">
                   <span className="font-display text-4xl text-brand-400">{s.price}</span>
                   <button
-                    onClick={() => {
-                      addToCart({ id: s.id, name: s.title, price: s.rawPrice, imageUrl: s.imageUrl });
-                      toast.success(`${s.title} zum Warenkorb hinzugefügt`);
-                    }}
+                    onClick={() => handleAddClick(s)}
                     className="btn-primary px-7 py-3 text-base flex items-center gap-2"
                   >
                     <Icon name="cart" className="w-5 h-5" />
@@ -138,6 +159,16 @@ export default function FoodSlider() {
           ))}
         </div>
       </section>
+
+      {modalMounted && (
+        <ExtrasModal
+          open={modalOpen}
+          item={modalItem ? { id: modalItem.id, name: modalItem.title, price: modalItem.rawPrice, imageUrl: modalItem.imageUrl, extras: modalItem.extras } : null}
+          extras={modalItem?.extras || []}
+          onClose={() => setModalOpen(false)}
+          onConfirm={handleConfirm}
+        />
+      )}
     </>
   );
 }
