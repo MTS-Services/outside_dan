@@ -71,12 +71,12 @@ export default function Contact() {
   return (
     <div ref={main}>
       {/* HERO */}
-      <section className="contact-hero relative h-[45vh] flex items-center overflow-hidden">
+      <section className="contact-hero relative h-[38vh] flex items-center overflow-hidden">
         {contactHero && (
           <img
             src={contactHero}
             alt="Restaurant contact"
-            className="contact-hero-bg absolute inset-0 w-full h-full object-cover will-change-transform"
+            className="contact-hero-bg absolute inset-0 w-full h-full object-cover object-top will-change-transform"
           />
         )}
         <div className="absolute inset-0 bg-ink-900/80" />

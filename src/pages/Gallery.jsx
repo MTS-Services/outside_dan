@@ -78,12 +78,12 @@ export default function Gallery() {
     <div ref={main}>
 
       {/* ── HERO ─────────────────────────────────────────── */}
-      <section className="gal-hero relative h-[60vh] flex items-center justify-center overflow-hidden">
+      <section className="gal-hero relative h-[48vh] flex items-center justify-center overflow-hidden">
         {photos.length > 0 ? (
           <img
             src={imgSrc(photos[0])}
             alt="Gallery hero"
-            className="gal-hero-bg absolute inset-0 w-full h-full object-cover will-change-transform"
+            className="gal-hero-bg absolute inset-0 w-full h-full object-cover object-top will-change-transform"
           />
         ) : (
           <div className="gal-hero-bg absolute inset-0 bg-ink-800" />

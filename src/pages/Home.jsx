@@ -46,9 +46,11 @@ export default function Home() {
   useGSAP(
     () => {
       // ── HERO: parallax bg + staggered intro ─────────────
-      gsap.to('.hero-bg', {
-        yPercent: 25,
-        scale: 1.15,
+      gsap.fromTo('.hero-bg',
+        { scale: 1 },
+        {
+        yPercent: 15,
+        scale: 1.08,
         ease: 'none',
         scrollTrigger: {
           trigger: '.hero-section',

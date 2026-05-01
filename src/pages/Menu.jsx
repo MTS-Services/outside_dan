@@ -100,12 +100,12 @@ export default function Menu() {
 
   return (
     <div ref={main}>
-      <section className="menu-hero relative h-[40vh] flex items-center overflow-hidden">
+      <section className="menu-hero relative h-[35vh] flex items-center overflow-hidden">
         {menuHero && (
           <img
             src={menuHero}
             alt="Speisekarte"
-            className="menu-hero-bg absolute inset-0 w-full h-full object-cover will-change-transform"
+            className="menu-hero-bg absolute inset-0 w-full h-full object-cover object-top will-change-transform"
           />
         )}
         <div className="hero-img-overlay absolute inset-0" />
