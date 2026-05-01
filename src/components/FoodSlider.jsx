@@ -70,16 +70,19 @@ export default function FoodSlider() {
   useGSAP(() => {
     const panels = gsap.utils.toArray('.fs-panel', root.current);
     if (!panels.length) return;
+
+    const isMobile = window.innerWidth < 768;
+
     const tween = gsap.to(panels, {
       xPercent: -100 * (panels.length - 1),
       ease: 'none',
       scrollTrigger: {
         trigger: root.current,
         pin: true, pinSpacing: true,
-        scrub: 1.9,
-        anticipatePin: 1,
+        scrub: isMobile ? 0.5 : 1.9,
+        anticipatePin: isMobile ? 0 : 1,
         start: 'top top',
-        end: () => '+=' + window.innerHeight * (panels.length - 1),
+        end: () => '+=' + window.innerHeight * (panels.length - 1) * (isMobile ? 2.5 : 1),
         invalidateOnRefresh: true,
       },
     });
@@ -123,7 +126,7 @@ export default function FoodSlider() {
       {/* Pinned slider — exactly h-screen so pin fits the viewport perfectly */}
       <section ref={root} className="relative bg-ink-900 w-full">
         <div className="relative h-screen flex flex-nowrap overflow-hidden">
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
+          <div className="hidden md:block absolute top-6 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
             <div className="text-[11px] tracking-[0.3em] text-white/50 uppercase">Scrollen · Essen · Wiederholen</div>
           </div>
 
