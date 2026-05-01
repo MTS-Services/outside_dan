@@ -44,6 +44,7 @@ export default function AdminGallery() {
   const [editId, setEditId] = useState(null);
   const [editAlt, setEditAlt] = useState('');
   const fileRef = useRef(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // img object to delete
 
   // Site hero images
   const [heroImages, setHeroImages] = useState({});
@@ -146,7 +147,12 @@ export default function AdminGallery() {
   }
 
   async function handleDelete(img) {
-    if (!confirm(`Bild "${img.alt || img.id}" wirklich löschen?`)) return;
+    setConfirmDelete(img);
+  }
+
+  async function confirmDeleteNow() {
+    const img = confirmDelete;
+    setConfirmDelete(null);
     try {
       await api.delete(`/gallery/${img.id}`);
       setImages((prev) => prev.filter((i) => i.id !== img.id));
@@ -160,6 +166,32 @@ export default function AdminGallery() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
+
+      {/* ── DELETE CONFIRM MODAL ───────────────────────────────── */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#16181f] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h3 className="font-display text-xl mb-2">Bild löschen?</h3>
+            <p className="text-white/50 text-sm mb-6">
+              „<span className="text-white/80">{confirmDelete.alt || confirmDelete.id}</span>" wird dauerhaft gelöscht.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-sm font-semibold transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmDeleteNow}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-semibold transition"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── HEADER ────────────────────────────────────────────── */}
       <div className="flex items-end justify-between gap-4">
