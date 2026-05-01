@@ -583,7 +583,7 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="font-display text-2xl">{title} ({rows.length})</h2>
-        <button onClick={() => setEditing({})} className="btn-primary">+ Neu</button>
+        <button onClick={() => setEditing({})} className="btn-primary">+ Hinzufügen</button>
       </div>
       {loading ? <Spin /> : (
         <div className="rounded-2xl bg-white/[0.03] border border-white/5 divide-y divide-white/5">
@@ -602,7 +602,7 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
             ))}
         </div>
       )}
-      {editing && <SimpleEditor row={editing.id ? editing : null} fields={fields} onClose={() => setEditing(null)} onSave={save} />}
+      {editing && <SimpleEditor row={editing.id ? editing : null} fields={fields} title={title} onClose={() => setEditing(null)} onSave={save} />}
       {confirmRow && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-ink-800 border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
@@ -626,7 +626,7 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
   );
 }
 
-function SimpleEditor({ row, fields, onClose, onSave }) {
+function SimpleEditor({ row, fields, title, onClose, onSave }) {
   const [form, setForm] = useState(() => {
     const f = {};
     fields.forEach((fld) => { f[fld.key] = row?.[fld.key] ?? (fld.type === 'checkbox' ? true : ''); });
@@ -642,7 +642,7 @@ function SimpleEditor({ row, fields, onClose, onSave }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur p-4">
       <form onSubmit={submit} className="w-full max-w-md bg-ink-900 border border-white/10 rounded-2xl p-6 space-y-4">
-        <h3 className="font-display text-2xl">{row ? 'Bearbeiten' : 'Neu'}</h3>
+        <h3 className="font-display text-2xl">{row ? `${title || ''} bearbeiten` : `${title || ''} hinzufügen`}</h3>
         {fields.map((f) => (
           <label key={f.key} className="block">
             <span className="label">{f.label}{f.required ? ' *' : ''}</span>
