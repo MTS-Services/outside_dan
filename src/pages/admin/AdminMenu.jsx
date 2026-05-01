@@ -43,7 +43,7 @@ function ItemsTab() {
   const [editing, setEditing] = useState(null); // null | {item}
   const [busyId, setBusyId] = useState(null);
   const [search, setSearch] = useState('');
-  const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
   const load = () => {
     setLoading(true);
@@ -133,7 +133,7 @@ function ItemEditor({ item, onClose, onSaved }) {
   const [uploading, setUploading] = useState(false);
   const [urlModal, setUrlModal] = useState(false);
   const [urlInput, setUrlInput] = useState('');
-  const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
   useEffect(() => {
     Promise.all([
@@ -341,7 +341,7 @@ function TagsTab() {
   const [confirmTag, setConfirmTag] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
-  const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
   const load = () => {
     setLoading(true);
@@ -437,7 +437,7 @@ function TagEditor({ tag, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
 
-  const imgSrc = (url) => url?.startsWith('/uploads/') ? `http://localhost:4000${url}` : url;
+  const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
   async function uploadFile(e) {
     const file = e.target.files[0];
