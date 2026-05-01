@@ -1,0 +1,241 @@
+// Prisma schema for restaurant delivery system
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SUBADMIN
+  STAFF // legacy, treated as SUBADMIN by middleware
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD_ON_DELIVERY
+  ONLINE
+  PAYPAL
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  FAILED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  phoneCountry String?
+  role      Role     @default(CUSTOMER)
+  blocked   Boolean  @default(false)
+  pushEnabled               Boolean @default(true)
+  orderNotificationsEnabled Boolean @default(true)
+  emailNotificationsEnabled Boolean @default(false)
+  resetCode   String?
+  resetCodeExpiry DateTime?
+  orders    Order[]   @relation("UserOrders")
+  acceptedOrders Order[] @relation("OrderAcceptedBy")
+  pushSubscriptions PushSubscription[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // For admin/kitchen subscriptions, userId is set; for guest, null
+  isKitchen Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  imageUrl    String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  showOnHome  Boolean    @default(false)
+  homeImageUrl String?
+  items       MenuItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Tag {
+  id      String  @id @default(uuid())
+  name    String
+  slug    String  @unique
+  color   String?
+  icon    String?
+  imageUrl String?
+  items   MenuItemTag[]
+  createdAt DateTime @default(now())
+}
+
+model MenuItemTag {
+  menuItemId String
+  tagId      String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([menuItemId, tagId])
+}
+
+model Extra {
+  id        String   @id @default(uuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2) @default(0)
+  isActive  Boolean  @default(true)
+  items     MenuItemExtra[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MenuItemExtra {
+  menuItemId String
+  extraId    String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  extra      Extra    @relation(fields: [extraId], references: [id], onDelete: Cascade)
+  @@id([menuItemId, extraId])
+}
+
+model MenuItem {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal    @db.Decimal(10, 2)
+  imageUrl    String?
+  isAvailable Boolean    @default(true)
+  isVegetarian Boolean   @default(false)
+  isSpicy     Boolean    @default(false)
+  isOnline    Boolean    @default(true)
+  showInSlider Boolean   @default(false)
+  sliderSortOrder Int    @default(0)
+  r2oProductId String?
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  tags        MenuItemTag[]
+  extras      MenuItemExtra[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  orderNumber   String        @unique
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @default(CASH)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  // PayPal
+  paypalOrderId   String?
+  paypalCaptureId String?
+
+  // Customer
+  userId        String?
+  user          User?         @relation("UserOrders", fields: [userId], references: [id])
+  customerName  String
+  customerPhone String
+  customerEmail String?
+
+  // Delivery address
+  street        String
+  city          String
+  postalCode    String
+  notes         String?
+
+  // Totals
+  subtotal      Decimal       @db.Decimal(10, 2)
+  deliveryFee   Decimal       @db.Decimal(10, 2) @default(0)
+  tax           Decimal       @db.Decimal(10, 2) @default(0)
+  total         Decimal       @db.Decimal(10, 2)
+
+  items         OrderItem[]
+
+  // POS reference once accepted & pushed to ready2order
+  r2oInvoiceId  String?
+  r2oReceiptNo  String?
+
+  // Acceptance / rejection
+  acceptedById   String?
+  acceptedBy     User?    @relation("OrderAcceptedBy", fields: [acceptedById], references: [id])
+  acceptanceNote String?
+  declinedReason String?
+  acceptedAt     DateTime?
+  deliveredAt    DateTime?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([acceptedById])
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  name       String
+  price      Decimal  @db.Decimal(10, 2)
+  quantity   Int
+  notes      String?
+  extras     OrderItemExtra[]
+}
+
+model OrderItemExtra {
+  id          String    @id @default(uuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  extraId     String?
+  name        String
+  price       Decimal   @db.Decimal(10, 2)
+  quantity    Int       @default(1)
+}
+
+model GalleryImage {
+  id         String   @id @default(uuid())
+  url        String
+  alt        String?
+  sortOrder  Int      @default(0)
+  showOnHome Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+model SiteImage {
+  key       String   @id   // e.g. "home_hero", "about_hero", "contact_hero"
+  url       String
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

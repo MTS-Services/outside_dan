@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "MenuItem" ADD COLUMN "showInSlider" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "sliderSortOrder" INTEGER NOT NULL DEFAULT 0;

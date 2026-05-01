@@ -1,0 +1,208 @@
+/**
+ * Email service (Nodemailer + SMTP).
+ * If SMTP env vars are missing, calls become no-ops (logged) — never throws.
+ */
+const nodemailer = require('nodemailer');
+const config = require('../config');
+
+let transporter = null;
+function getTransporter() {
+  if (transporter) return transporter;
+  if (!config.smtp.host) return null;
+  transporter = nodemailer.createTransport({
+    host: config.smtp.host,
+    port: config.smtp.port,
+    secure: config.smtp.secure,
+    auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
+  });
+  return transporter;
+}
+
+function isConfigured() {
+  return Boolean(config.smtp.host);
+}
+
+async function send({ to, subject, html, text }) {
+  const t = getTransporter();
+  if (!t || !to) {
+    // eslint-disable-next-line no-console
+    console.log('[email] skipped (no SMTP or no recipient):', subject);
+    return { skipped: true };
+  }
+  try {
+    const info = await t.sendMail({
+      from: config.smtp.from,
+      to,
+      subject,
+      html,
+      text: text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''),
+    });
+    return { messageId: info.messageId };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[email] send failed:', err.message);
+    return { error: err.message };
+  }
+}
+
+// --- Templates (German) ----------------------------------------------------
+
+function fmt(n) { return Number(n).toFixed(2); }
+
+function shellHTML({ title, preheader, content }) {
+  const name = config.restaurant.name || 'Tarantella';
+  return `<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#050505;font-family:Inter,Arial,sans-serif;color:#fff;">
+<span style="display:none;font-size:0;">${preheader || ''}</span>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:32px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;">
+      <tr><td align="center" style="padding:20px 28px;background:#000;border-bottom:3px solid #D9AF47;">
+        <span style="font-family:'Bebas Neue',Impact,sans-serif;font-size:28px;letter-spacing:3px;color:#D9AF47;">${name}</span>
+      </td></tr>
+      <tr><td style="padding:28px;color:#fff;line-height:1.6;font-size:15px;">
+        ${content}
+      </td></tr>
+      <tr><td style="padding:18px 28px;border-top:1px solid rgba(255,255,255,0.05);font-size:12px;color:rgba(255,255,255,0.4);">
+        ${name} · ${config.restaurant.address || 'Wien, Österreich'} · ${config.restaurant.phone || ''}
+      </td></tr>
+    </table>
+  </td></tr>
+</table></body></html>`;
+}
+
+function itemsTable(order) {
+  const rows = order.items.map((it) => {
+    const extras = (it.extras || []).map((e) => `+ ${e.name} (€ ${fmt(e.price)})`).join('<br>');
+    return `<tr>
+      <td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="font-weight:600;">${it.quantity}× ${it.name}</div>
+        ${extras ? `<div style="color:rgba(255,255,255,0.55);font-size:13px;">${extras}</div>` : ''}
+        ${it.notes ? `<div style="color:#D9AF47;font-size:13px;font-style:italic;">${it.notes}</div>` : ''}
+      </td>
+      <td align="right" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-weight:600;">€ ${fmt(Number(it.price) * it.quantity)}</td>
+    </tr>`;
+  }).join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+    ${rows}
+    <tr><td style="padding:10px 0;color:rgba(255,255,255,0.6);">Zwischensumme</td><td align="right" style="padding:10px 0;">€ ${fmt(order.subtotal)}</td></tr>
+    <tr><td style="padding:4px 0;color:rgba(255,255,255,0.6);">Lieferung</td><td align="right" style="padding:4px 0;">€ ${fmt(order.deliveryFee)}</td></tr>
+    <tr><td style="padding:10px 0;border-top:2px solid #D9AF47;font-weight:700;font-size:18px;">Gesamt</td>
+        <td align="right" style="padding:10px 0;border-top:2px solid #D9AF47;font-weight:700;font-size:18px;color:#D9AF47;">€ ${fmt(order.total)}</td></tr>
+  </table>`;
+}
+
+function orderAcceptedHTML(order) {
+  const note = order.acceptanceNote
+    ? `<div style="margin:18px 0;padding:14px 16px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.3);border-radius:10px;color:#6ee7b7;">
+        <strong>Hinweis vom Koch:</strong> ${order.acceptanceNote}</div>`
+    : '';
+  return shellHTML({
+    title: 'Bestellung angenommen',
+    preheader: `Bestellung ${order.orderNumber} angenommen`,
+    content: `
+      <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:36px;letter-spacing:2px;margin:0 0 6px;color:#D9AF47;">BESTELLUNG ANGENOMMEN</h1>
+      <p style="color:rgba(255,255,255,0.7);margin:0 0 6px;">Hallo ${order.customerName},</p>
+      <p style="color:rgba(255,255,255,0.7);margin:0 0 14px;">Ihre Bestellung <strong style="color:#D9AF47;">${order.orderNumber}</strong> wurde angenommen und wird gerade zubereitet.</p>
+      ${note}
+      ${itemsTable(order)}
+      <div style="margin-top:18px;padding:14px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:13px;color:rgba(255,255,255,0.7);">
+        <div><strong>Lieferadresse:</strong> ${order.street}, ${order.postalCode} ${order.city}</div>
+        <div><strong>Telefon:</strong> ${order.customerPhone}</div>
+        <div><strong>Zahlung:</strong> ${prettyPayment(order.paymentMethod)} · ${order.paymentStatus === 'PAID' ? 'bezahlt' : 'ausstehend'}</div>
+      </div>
+      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Vielen Dank — wir geben unser Bestes!</p>`,
+  });
+}
+
+function orderDeclinedHTML(order) {
+  return shellHTML({
+    title: 'Bestellung abgelehnt',
+    preheader: `Bestellung ${order.orderNumber} abgelehnt`,
+    content: `
+      <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:32px;letter-spacing:2px;margin:0 0 6px;color:#CD212A;">BESTELLUNG ABGELEHNT</h1>
+      <p style="color:rgba(255,255,255,0.7);margin:0 0 14px;">Hallo ${order.customerName},</p>
+      <p style="color:rgba(255,255,255,0.7);margin:0 0 14px;">Leider mussten wir Ihre Bestellung <strong>${order.orderNumber}</strong> ablehnen.</p>
+      ${order.declinedReason ? `<div style="margin:14px 0;padding:14px 16px;background:rgba(205,33,42,0.10);border:1px solid rgba(205,33,42,0.3);border-radius:10px;color:#fca5a5;"><strong>Grund:</strong> ${order.declinedReason}</div>` : ''}
+      <p style="color:rgba(255,255,255,0.7);">Sie können Ihre Bestellung in Ihrem Konto bearbeiten und erneut absenden.</p>
+      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Bei Fragen erreichen Sie uns unter ${config.restaurant.phone || ''}.</p>`,
+  });
+}
+
+function prettyPayment(m) {
+  return ({
+    CASH: 'Bar bei Lieferung',
+    CARD_ON_DELIVERY: 'Karte bei Lieferung',
+    PAYPAL: 'PayPal',
+    ONLINE: 'Online',
+  })[m] || m;
+}
+
+async function sendOrderAccepted(order) {
+  if (!order?.customerEmail) return;
+  return send({
+    to: order.customerEmail,
+    subject: `Bestellung ${order.orderNumber} angenommen`,
+    html: orderAcceptedHTML(order),
+  });
+}
+
+async function sendOrderDeclined(order) {
+  if (!order?.customerEmail) return;
+  return send({
+    to: order.customerEmail,
+    subject: `Bestellung ${order.orderNumber} abgelehnt`,
+    html: orderDeclinedHTML(order),
+  });
+}
+
+function newOrderAdminHTML(order) {
+  return shellHTML({
+    title: 'Neue Bestellung eingegangen',
+    preheader: `Neue Bestellung ${order.orderNumber} von ${order.customerName}`,
+    content: `
+      <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:36px;letter-spacing:2px;margin:0 0 6px;color:#D9AF47;">NEUE BESTELLUNG</h1>
+      <p style="color:rgba(255,255,255,0.7);margin:0 0 14px;">Bestellnummer: <strong style="color:#D9AF47;">${order.orderNumber}</strong></p>
+      <div style="margin-bottom:16px;padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:14px;color:rgba(255,255,255,0.85);">
+        <div style="margin-bottom:6px;"><strong>Kunde:</strong> ${order.customerName}</div>
+        <div style="margin-bottom:6px;"><strong>Telefon:</strong> ${order.customerPhone || '—'}</div>
+        <div style="margin-bottom:6px;"><strong>E-Mail:</strong> ${order.customerEmail || '—'}</div>
+        <div style="margin-bottom:6px;"><strong>Adresse:</strong> ${order.street}, ${order.postalCode} ${order.city}</div>
+        <div style="margin-bottom:6px;"><strong>Zahlung:</strong> ${prettyPayment(order.paymentMethod)}</div>
+        ${order.notes ? `<div style="margin-top:6px;color:#D9AF47;"><strong>Notiz:</strong> ${order.notes}</div>` : ''}
+      </div>
+      ${itemsTable(order)}
+      <div style="margin-top:20px;">
+        <a href="${config.clientUrl}/admin/orders" style="display:inline-block;padding:12px 28px;background:#D9AF47;color:#000;font-weight:700;border-radius:8px;text-decoration:none;font-size:15px;">Bestellung öffnen</a>
+      </div>
+      <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:18px;">Diese E-Mail wurde automatisch von ${config.restaurant.name || 'Tarantella'} gesendet.</p>`,
+  });
+}
+
+async function sendNewOrderToAdmin(order, adminEmails) {
+  if (!adminEmails || adminEmails.length === 0) return;
+  const to = Array.isArray(adminEmails) ? adminEmails.join(', ') : adminEmails;
+  return send({
+    to,
+    subject: `Neue Bestellung ${order.orderNumber} – ${order.customerName}`,
+    html: newOrderAdminHTML(order),
+  });
+}
+
+async function sendTestEmailToAdmin(adminEmail) {
+  return send({
+    to: adminEmail,
+    subject: 'Test-E-Mail',
+    html: shellHTML({
+      title: 'Test-E-Mail',
+      preheader: 'Dies ist eine Test-E-Mail',
+      content: `
+        <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:36px;letter-spacing:2px;margin:0 0 12px;color:#D9AF47;">TEST-E-MAIL</h1>
+        <p style="color:rgba(255,255,255,0.8);">E-Mail-Benachrichtigungen sind korrekt eingerichtet.</p>
+        <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;">Du erhältst ab jetzt eine E-Mail für jede neue Bestellung.</p>`,
+    }),
+  });
+}
+
+module.exports = { send, sendOrderAccepted, sendOrderDeclined, sendNewOrderToAdmin, sendTestEmailToAdmin, isConfigured };
