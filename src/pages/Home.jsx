@@ -176,7 +176,7 @@ export default function Home() {
   return (
     <div ref={main}>
       {/* ── HERO ─────────────────────────────────────────── */}
-      <section id="home" className="hero-section relative min-h-[100svh] min-h-[90vh] flex items-start sm:items-center overflow-hidden">
+      <section id="home" className="hero-section relative min-h-screen flex items-center overflow-hidden">
         {/* Background image */}
         {homeHero && (
           <img
@@ -187,7 +187,7 @@ export default function Home() {
         )}
         <div className="hero-img-overlay absolute inset-0" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 sm:py-28">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:py-28">
           <div className="max-w-2xl">
             <span className="hero-anim chip bg-brand-500/30 text-brand-200 mb-4 sm:mb-6 text-sm tracking-widest uppercase inline-flex items-center gap-2">
               <Icon name="star" className="w-3.5 h-3.5" /> Jetzt Lieferung in ganz Wien
@@ -227,7 +227,7 @@ export default function Home() {
         </div>
 
         {/* Scroll hint */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/30 animate-bounce">
+        <div className="hidden sm:flex absolute bottom-8 left-1/2 -translate-x-1/2 flex-col items-center gap-1 text-white/30 animate-bounce">
           <span className="text-xs tracking-widest uppercase">Scrollen</span>
           <svg width="16" height="24" viewBox="0 0 16 24" fill="none"><rect x="6.5" y="1" width="3" height="7" rx="1.5" fill="currentColor"/><path d="M1 12l7 9 7-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>

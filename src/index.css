@@ -76,8 +76,8 @@
 
 /* Parallax hero overlay */
 .hero-img-overlay {
-  /* mobile: darken top (text area), let food show at bottom */
-  background: linear-gradient(to bottom, rgba(5,5,5,0.90) 0%, rgba(5,5,5,0.60) 55%, rgba(5,5,5,0.25) 100%);
+  /* mobile: dark top/bottom, image visible in middle */
+  background: linear-gradient(to bottom, rgba(5,5,5,0.80) 0%, rgba(5,5,5,0.45) 50%, rgba(5,5,5,0.70) 100%);
 }
 @media (min-width: 640px) {
   .hero-img-overlay {
