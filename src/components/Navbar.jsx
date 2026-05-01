@@ -86,7 +86,7 @@ export default function Navbar() {
                 </Link>
                 <div className="border-t border-white/5" />
                 <a
-                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/uploads/speisekarte.pdf`}
+                  href="/speisekarte.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMenuDropOpen(false)}
@@ -162,6 +162,15 @@ export default function Navbar() {
           >
             Order now
           </NavLink>
+          <a
+            href="/speisekarte.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleNav}
+            className="block px-4 py-3 text-base font-semibold uppercase tracking-wider border-b border-white/5 transition-colors text-white/80 hover:text-white"
+          >
+            Speisekarte
+          </a>
           <NavLink to="/gallery" onClick={handleNav} className={mobileLink}>Galerie</NavLink>
           <NavLink to="/about" onClick={handleNav} className={mobileLink}>Über uns</NavLink>
           <NavLink to="/contact" onClick={handleNav} className={mobileLink}>Kontakt</NavLink>
