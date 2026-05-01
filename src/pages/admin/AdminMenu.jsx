@@ -374,7 +374,7 @@ function TagsTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="font-display text-2xl">Tags ({tags.length})</h2>
-        <button onClick={() => setEditing({})} className="btn-primary">+ Neu</button>
+        <button onClick={() => setEditing({})} className="btn-primary">+ Tag hinzufügen</button>
       </div>
       {loading ? <Spin /> : (
         <div className="rounded-2xl bg-white/[0.03] border border-white/5 divide-y divide-white/5">
