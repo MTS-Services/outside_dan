@@ -52,7 +52,7 @@ export default function FoodSlider() {
       scrollTrigger: {
         trigger: root.current,
         pin: true, pinSpacing: true,
-        scrub: 1.5,
+        scrub: 1.9,
         anticipatePin: 1,
         start: 'top top',
         end: () => '+=' + window.innerHeight * (panels.length - 1),
