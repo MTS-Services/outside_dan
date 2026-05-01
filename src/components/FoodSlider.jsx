@@ -10,6 +10,8 @@ import { useCart } from '../store/cart';
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=80';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+function imgSrc(url) { return url && url.startsWith('/uploads/') ? `${API}${url}` : (url || FALLBACK_IMG); }
 
 export default function FoodSlider() {
   const root = useRef(null);
@@ -26,8 +28,8 @@ export default function FoodSlider() {
         desc: item.description || '',
         rawPrice: Number(item.price),
         price: `€ ${Number(item.price).toFixed(2)}`,
-        img: item.imageUrl || FALLBACK_IMG,
-        imageUrl: item.imageUrl || FALLBACK_IMG,
+        img: imgSrc(item.imageUrl),
+        imageUrl: imgSrc(item.imageUrl),
       }));
       setSlides(built);
     }).catch(() => setSlides([]));

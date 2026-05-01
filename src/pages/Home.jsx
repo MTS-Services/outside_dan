@@ -240,10 +240,12 @@ export default function Home() {
           <div className="divider-brand" />
         </div>
         <div className="cat-grid grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-2">
-          {homeCategories.map((c) => (
+          {homeCategories.map((c) => {
+            const catImg = (() => { const u = c.homeImageUrl || c.imageUrl; return u ? (u.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${u}` : u) : 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=700'; })();
+            return (
             <Link key={c.id} to={`/menu?category=${c.slug}`} className="cat-card overflow-hidden rounded-2xl group relative aspect-[3/4]">
               <img
-                src={c.homeImageUrl || c.imageUrl || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=700'}
+                src={catImg}
                 alt={c.name}
                 loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition duration-700"
@@ -259,7 +261,8 @@ export default function Home() {
                 <span className="bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-full">Ansehen</span>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       </section>
 
