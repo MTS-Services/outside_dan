@@ -8,7 +8,7 @@ export default defineConfig({
     open: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'https://api-dan.batteryqk.com',
         changeOrigin: true,
       },
     },
