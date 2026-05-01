@@ -435,38 +435,61 @@ function TagEditor({ tag, onClose, onSave }) {
   const [urlInput, setUrlInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [localPreview, setLocalPreview] = useState(null);
   const fileRef = useRef(null);
 
   const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
-  async function uploadFile(e) {
+  function uploadFile(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!tag?.id) { toast.error('Erst speichern, dann Bild hochladen'); return; }
-    setUploading(true);
-    try {
+    if (tag?.id) {
+      // Editing existing tag — upload immediately
+      setUploading(true);
       const fd = new FormData();
       fd.append('image', file);
-      const { data } = await api.post(`/menu/admin/tags/${tag.id}/image`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setImageUrl(data.imageUrl);
-      toast.success('Bild hochgeladen');
-    } catch { toast.error('Upload fehlgeschlagen'); }
-    finally { setUploading(false); e.target.value = ''; }
+      api.post(`/menu/admin/tags/${tag.id}/image`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        .then(({ data }) => { setImageUrl(data.imageUrl); toast.success('Bild hochgeladen'); })
+        .catch(() => toast.error('Upload fehlgeschlagen'))
+        .finally(() => { setUploading(false); e.target.value = ''; });
+    } else {
+      // New tag — stage file locally, show preview
+      setPendingFile(file);
+      setLocalPreview(URL.createObjectURL(file));
+      setImageUrl('');
+      e.target.value = '';
+    }
   }
 
   async function fetchUrl() {
     if (!urlInput.trim()) return;
     setImageUrl(urlInput.trim());
+    setPendingFile(null);
+    setLocalPreview(null);
     setUrlInput('');
   }
 
   async function submit(e) {
     e.preventDefault();
     setSaving(true);
-    await onSave({ name, imageUrl: imageUrl || null }, tag?.id);
-    setSaving(false);
+    try {
+      if (!tag?.id && pendingFile) {
+        // Create tag first, then upload image
+        const slug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const { data: created } = await api.post('/menu/admin/tags', { name, slug, imageUrl: null });
+        const fd = new FormData();
+        fd.append('image', pendingFile);
+        const { data: uploaded } = await api.post(`/menu/admin/tags/${created.id}/image`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        toast.success('Erstellt');
+        await onSave({ name, imageUrl: uploaded.imageUrl }, created.id);
+      } else {
+        await onSave({ name, imageUrl: imageUrl || null }, tag?.id);
+      }
+    } catch (err) { toast.error(err.displayMessage || 'Fehler'); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -485,12 +508,12 @@ function TagEditor({ tag, onClose, onSave }) {
           <span className="label">Bild (64×64)</span>
           <div className="flex items-center gap-3">
             <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-ink-700 shrink-0 flex items-center justify-center border border-white/10">
-              {imageUrl ? (
+              {(imageUrl || localPreview) ? (
                 <>
-                  <img src={imgSrc(imageUrl)} alt="" className="w-full h-full object-cover" />
+                  <img src={localPreview || imgSrc(imageUrl)} alt="" className="w-full h-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => setImageUrl('')}
+                    onClick={() => { setImageUrl(''); setPendingFile(null); setLocalPreview(null); }}
                     className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition flex items-center justify-center text-white text-lg font-bold"
                     title="Bild entfernen"
                   >✕</button>
