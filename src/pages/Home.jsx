@@ -49,8 +49,7 @@ export default function Home() {
       gsap.fromTo('.hero-bg',
         { scale: 1 },
         {
-        yPercent: 15,
-        scale: 1.08,
+        yPercent: 20,
         ease: 'none',
         scrollTrigger: {
           trigger: '.hero-section',

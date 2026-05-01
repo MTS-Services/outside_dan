@@ -166,12 +166,12 @@ export default function About() {
   return (
     <div ref={main}>
       {/* HERO */}
-      <section className="about-hero relative h-[44vh] flex items-center overflow-hidden">
+      <section className="about-hero relative h-[65vh] flex items-center overflow-hidden">
         {aboutHero && (
           <img
             src={aboutHero}
             alt="Restaurant interior"
-            className="about-hero-bg absolute inset-0 w-full h-full object-cover object-top will-change-transform"
+            className="about-hero-bg absolute inset-0 w-full h-full object-cover object-center will-change-transform"
           />
         )}
         <div className="absolute inset-0 bg-ink-900/75" />
