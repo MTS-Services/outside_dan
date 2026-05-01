@@ -45,10 +45,13 @@ export default function Home() {
 
   useGSAP(
     () => {
-      // ── HERO: parallax bg + staggered intro ─────────────
+      // ── HERO: entrance zoom-out + scroll parallax ──────
       gsap.fromTo('.hero-bg',
-        { scale: 1 },
-        {
+        { scale: 1.12, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 1.8, ease: 'power2.out' }
+      );
+
+      gsap.to('.hero-bg', {
         yPercent: 20,
         ease: 'none',
         scrollTrigger: {
