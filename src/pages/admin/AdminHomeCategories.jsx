@@ -7,6 +7,12 @@ const TABS = [
   { id: 'slider',    label: 'Startseiten-Slider' },
 ];
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+function imgSrc(url) {
+  if (!url) return null;
+  return url.startsWith('/uploads/') ? `${API}${url}` : url;
+}
+
 function Spin() {
   return <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />;
 }
@@ -134,7 +140,7 @@ function HomeCatsTab() {
 }
 
 function HomeCatCard({ cat, onRemove, onEdit }) {
-  const img = cat.homeImageUrl || cat.imageUrl;
+  const img = imgSrc(cat.homeImageUrl || cat.imageUrl);
   return (
     <div className="rounded-2xl overflow-hidden bg-white/[0.03] border border-white/5 group">
       <div className="aspect-[3/4] relative">
@@ -241,7 +247,7 @@ function PickProductModal({ cat, onClose, onSaved }) {
                   >
                     <div className="aspect-square w-full bg-ink-800">
                       {it.imageUrl
-                        ? <img src={it.imageUrl} alt={it.name} className="w-full h-full object-cover" />
+                        ? <img src={imgSrc(it.imageUrl)} alt={it.name} className="w-full h-full object-cover" />
                         : <div className="w-full h-full grid place-items-center text-white/20 text-xs p-2">{it.name}</div>}
                     </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
@@ -264,7 +270,7 @@ function PickProductModal({ cat, onClose, onSaved }) {
           {selected ? (
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
-                <img src={selected.imageUrl} alt={selected.name} className="w-full h-full object-cover" />
+                <img src={imgSrc(selected.imageUrl)} alt={selected.name} className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-white/40">Gewählt:</p>
@@ -375,7 +381,7 @@ function CatEditModal({ cat, onClose, onSaved }) {
                       className={`relative rounded-xl overflow-hidden aspect-square border-2 transition ${selected ? 'border-brand-500 scale-105 shadow-lg shadow-brand-500/30' : 'border-white/10 hover:border-white/40'} disabled:opacity-25 disabled:cursor-not-allowed`}
                     >
                       {it.imageUrl
-                        ? <img src={it.imageUrl} alt={it.name} className="w-full h-full object-cover" />
+                        ? <img src={imgSrc(it.imageUrl)} alt={it.name} className="w-full h-full object-cover" />
                         : <div className="w-full h-full bg-ink-800 grid place-items-center text-white/20 text-[10px]">–</div>}
                       {selected && (
                         <div className="absolute inset-0 bg-brand-500/30 grid place-items-center">
@@ -389,7 +395,7 @@ function CatEditModal({ cat, onClose, onSaved }) {
             )}
             {(form.homeImageUrl) && (
               <div className="mt-3 h-28 rounded-xl overflow-hidden">
-                <img src={form.homeImageUrl} alt="Vorschau" className="w-full h-full object-cover" />
+                <img src={imgSrc(form.homeImageUrl)} alt="Vorschau" className="w-full h-full object-cover" />
               </div>
             )}
           </div>
@@ -511,7 +517,7 @@ function SliderTab() {
                 </div>
                 <div className="w-14 h-14 rounded-xl overflow-hidden bg-ink-800 shrink-0">
                   {item.imageUrl
-                    ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ? <img src={imgSrc(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full grid place-items-center text-white/20 text-xs">–</div>}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -569,7 +575,7 @@ function SliderTab() {
               <div key={item.id} className="rounded-2xl bg-white/[0.03] border border-white/5 flex gap-3 p-3 items-center">
                 <div className="w-14 h-14 rounded-xl overflow-hidden bg-ink-800 shrink-0">
                   {item.imageUrl
-                    ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ? <img src={imgSrc(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full grid place-items-center text-white/20 text-xs">–</div>}
                 </div>
                 <div className="flex-1 min-w-0">
