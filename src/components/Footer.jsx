@@ -38,8 +38,8 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-10">
         {/* Brand */}
         <div>
-          <div className="flex items-center gap-2.5 mb-4">
-            <img src="/logo.png" alt="Tarantella" className="h-12 w-auto object-contain" />
+          <div className="mb-4">
+            <img src="/logo.png" alt="Tarantella" className="h-24 w-auto object-contain" />
           </div>
           <p className="text-white/55 text-sm leading-relaxed mb-5">{desc}</p>
           <div className="flex gap-3">
