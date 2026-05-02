@@ -61,14 +61,14 @@ export default function MyOrders() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="font-display text-5xl">MEIN DASHBOARD</h1>
+          <h1 className="font-display text-3xl sm:text-5xl">MEIN DASHBOARD</h1>
           <p className="text-white/60 mt-1">Willkommen, {user?.name}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {pushSupported() && (
             <button onClick={togglePush} className={pushOn ? 'btn-outline' : 'btn-primary'}>
               <Icon name="bolt" className="w-4 h-4" />
-              {pushOn ? 'Push deaktivieren' : 'Push-Benachrichtigungen aktivieren'}
+              {pushOn ? 'Push deaktivieren' : 'Push aktivieren'}
             </button>
           )}
           <button onClick={onLogout} className="btn-ghost">Abmelden</button>

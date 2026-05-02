@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 
@@ -26,6 +27,7 @@ export default function AdminLayout() {
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!token) return <Navigate to={`/login?next=${encodeURIComponent(pathname)}`} replace />;
   if (user && !['ADMIN', 'SUBADMIN', 'STAFF'].includes(user.role)) {
@@ -42,12 +44,36 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-[#0d0f14]">
-      <aside className="w-60 shrink-0 flex flex-col border-r border-white/5 bg-[#111318] sticky top-0 h-screen">
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed md:sticky top-0 left-0 z-40
+        w-64 md:w-60 shrink-0 flex flex-col
+        border-r border-white/5 bg-[#111318] h-screen
+        transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
         <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 overflow-visible">
           <img src="/logo.png" alt="Tarantella" className="h-16 w-auto object-contain" />
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="text-[10px] text-white/40 tracking-widest uppercase">{user?.role === 'ADMIN' ? 'Admin' : 'Subadmin'}</div>
           </div>
+          {/* Close button - mobile only */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -58,6 +84,7 @@ export default function AdminLayout() {
               to={item.to}
               end={item.end}
               target={item.external ? '_blank' : undefined}
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   isActive && !item.external
@@ -98,8 +125,19 @@ export default function AdminLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-white/5 bg-[#111318]/60 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-6">
-          <h1 className="font-display tracking-widest text-base">KÜCHEN-DASHBOARD</h1>
+        <header className="h-14 border-b border-white/5 bg-[#111318]/60 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            {/* Hamburger - mobile only */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                <path d="M3 12h18M3 6h18M3 18h18" />
+              </svg>
+            </button>
+            <h1 className="font-display tracking-widest text-sm md:text-base">KÜCHEN-DASHBOARD</h1>
+          </div>
           <div className="flex items-center gap-2 text-white/40 text-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Live

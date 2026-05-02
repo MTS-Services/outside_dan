@@ -110,7 +110,7 @@ export default function AdminOrders() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <audio ref={audioRef} src="/notify.mp3" preload="auto" />
 
       <Section
@@ -191,7 +191,7 @@ function Section({ title, accent, rows, onSearch, onPage, renderActions }) {
   const totalPages = Math.max(1, Math.ceil((rows.total || 0) / PAGE_SIZE));
   return (
     <section className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
-      <header className="flex items-center justify-between gap-4 px-5 py-3 border-b border-white/5 flex-wrap">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/5 flex-wrap">
         <div className="flex items-center gap-3">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />
           <h2 className="font-display tracking-widest text-sm">{title}</h2>
@@ -201,7 +201,7 @@ function Section({ title, accent, rows, onSearch, onPage, renderActions }) {
           defaultValue={rows.search}
           onKeyDown={(e) => { if (e.key === 'Enter') onSearch(e.target.value); }}
           placeholder="Suchen…"
-          className="input h-9 w-56 text-sm"
+          className="input h-9 w-full sm:w-56 text-sm"
         />
       </header>
 

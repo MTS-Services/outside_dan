@@ -63,8 +63,8 @@ export default function AdminNotifications() {
   }
 
   return (
-    <div className="p-6 space-y-5">
-      <h1 className="font-display text-3xl">Benachrichtigungen</h1>
+    <div className="p-4 sm:p-6 space-y-5">
+      <h1 className="font-display text-2xl sm:text-3xl">Benachrichtigungen</h1>
 
       {/* Push card */}
       <div className="card p-6 space-y-4">

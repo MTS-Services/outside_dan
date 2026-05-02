@@ -82,7 +82,7 @@ export default function AdminCustomerDetail() {
   const initials = customer.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-4 sm:p-6 space-y-6 max-w-4xl">
       {/* Back */}
       <button
         onClick={() => navigate('/admin/customers')}

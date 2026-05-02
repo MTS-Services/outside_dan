@@ -12,8 +12,8 @@ const TABS = [
 export default function AdminMenu() {
   const [tab, setTab] = useState('items');
   return (
-    <div className="p-6">
-      <div className="flex gap-2 mb-6 border-b border-white/5">
+    <div className="p-4 sm:p-6">
+      <div className="flex gap-1 sm:gap-2 mb-6 border-b border-white/5 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -70,8 +70,8 @@ function ItemsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="font-display text-2xl">Produkte ({rows.length})</h2>
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <h2 className="font-display text-xl sm:text-2xl">Produkte ({rows.length})</h2>
         <button onClick={() => setEditing({})} className="btn-primary">+ Neues Produkt</button>
       </div>
       <input

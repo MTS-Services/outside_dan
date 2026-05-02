@@ -36,14 +36,14 @@ export default function Profile() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="font-display text-5xl">MEIN KONTO</h1>
+          <h1 className="font-display text-3xl sm:text-5xl">MEIN KONTO</h1>
           <p className="text-white/60 mt-1">Willkommen, {user?.name}</p>
         </div>
         <button onClick={onLogout} className="btn-ghost">Abmelden</button>
       </div>
 
-      <div className="grid md:grid-cols-[220px_1fr] gap-8">
-        <aside className="space-y-1">
+      <div className="grid md:grid-cols-[220px_1fr] gap-6 md:gap-8">
+        <aside className="flex md:flex-col gap-1 overflow-x-auto pb-1 md:pb-0 border-b border-white/5 md:border-b-0">
           <TabLink to="/account" active={tab === 'profile'}>Profil</TabLink>
           <TabLink to="/account/orders" active={tab === 'orders'}>Meine Bestellungen</TabLink>
           <TabLink to="/account/notifications" active={tab === 'notifications'}>Benachrichtigungen</TabLink>

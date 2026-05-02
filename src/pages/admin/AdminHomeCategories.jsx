@@ -21,12 +21,12 @@ export default function AdminHomeCategories() {
   const [tab, setTab] = useState('home-cats');
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="font-display text-3xl tracking-wide">Startseite verwalten</h1>
+        <h1 className="font-display text-2xl sm:text-3xl tracking-wide">Startseite verwalten</h1>
         <p className="text-white/40 text-sm mt-1">Steuere welche Inhalte auf der Startseite angezeigt werden.</p>
       </div>
-      <div className="flex gap-2 mb-8 border-b border-white/5">
+      <div className="flex gap-1 sm:gap-2 mb-8 border-b border-white/5 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.id}

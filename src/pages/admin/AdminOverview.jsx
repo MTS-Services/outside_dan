@@ -56,7 +56,7 @@ export default function AdminOverview() {
   ];
 
   return (
-    <div ref={containerRef} className="p-6 space-y-6">
+    <div ref={containerRef} className="p-4 sm:p-6 space-y-6">
       {/* header */}
       <div className="flex items-center justify-between">
         <div>

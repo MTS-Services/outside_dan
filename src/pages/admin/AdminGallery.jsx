@@ -165,7 +165,7 @@ export default function AdminGallery() {
   const homeCount = images.filter((i) => i.showOnHome).length;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8">
 
       {/* ── DELETE CONFIRM MODAL ───────────────────────────────── */}
       {confirmDelete && (
@@ -194,10 +194,10 @@ export default function AdminGallery() {
       )}
 
       {/* ── HEADER ────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <p className="text-brand-400 text-xs font-semibold tracking-[0.2em] uppercase mb-1">Verwaltung</p>
-          <h1 className="font-display text-3xl tracking-wider text-white">Galerie</h1>
+          <h1 className="font-display text-2xl sm:text-3xl tracking-wider text-white">Galerie</h1>
           <p className="text-white/35 text-sm mt-1">
             {images.length} Bild{images.length !== 1 ? 'er' : ''} · {homeCount} / 3 auf Startseite
           </p>
@@ -220,7 +220,7 @@ export default function AdminGallery() {
           <h2 className="text-white/80 text-sm font-semibold tracking-widest uppercase">Seiten-Heros</h2>
           <span className="text-white/25 text-xs">Bild das oben auf jeder Seite erscheint</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {HERO_SLOTS.map(({ key, label }) => {
             const currentUrl = siteImgSrc(heroImages[key]);
             const busy = heroUploading[key];

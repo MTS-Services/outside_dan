@@ -41,8 +41,8 @@ export default function AdminProfile() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <h1 className="font-display text-3xl">Mein Profil</h1>
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+      <h1 className="font-display text-2xl sm:text-3xl">Mein Profil</h1>
       <form onSubmit={saveProfile} className="card p-6 space-y-4">
         <h2 className="text-xl font-semibold">Persönliche Daten</h2>
         <label className="block"><span className="label">Name</span><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>

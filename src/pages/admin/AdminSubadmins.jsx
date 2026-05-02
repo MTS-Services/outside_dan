@@ -34,9 +34,9 @@ export default function AdminSubadmins() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="font-display text-3xl">Subadmins ({rows.length})</h1>
+    <div className="p-4 sm:p-6 space-y-4">
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <h1 className="font-display text-2xl sm:text-3xl">Subadmins ({rows.length})</h1>
         <button onClick={() => setCreating(true)} className="btn-primary">+ Neuer Subadmin</button>
       </div>
       {loading ? <Spin /> : rows.length === 0 ? (
@@ -44,35 +44,41 @@ export default function AdminSubadmins() {
       ) : (
         <div className="rounded-2xl bg-white/[0.03] border border-white/5 divide-y divide-white/5">
           {rows.map((u) => (
-            <div key={u.id} className="p-4 flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-full grid place-items-center font-bold shrink-0 ${u.blocked ? 'bg-white/10 text-white/30' : 'bg-brand-500/30 text-brand-200'}`}>
-                {u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className={`font-semibold truncate ${u.blocked ? 'text-white/40' : ''}`}>{u.name}</div>
-                <div className="text-xs text-white/50 truncate">
-                  {u.email}{u.phone ? ` • ${u.phone}` : ''}
+            <div key={u.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className={`w-10 h-10 rounded-full grid place-items-center font-bold shrink-0 ${u.blocked ? 'bg-white/10 text-white/30' : 'bg-brand-500/30 text-brand-200'}`}>
+                  {u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`font-semibold truncate ${u.blocked ? 'text-white/40' : ''}`}>{u.name}</div>
+                  <div className="text-xs text-white/50 truncate">
+                    {u.email}{u.phone ? ` • ${u.phone}` : ''}
+                  </div>
                 </div>
               </div>
-              {/* Active / Inactive toggle */}
-              <button
-                disabled={busyId === u.id + '_block'}
-                onClick={() => toggleBlocked(u)}
-                title={u.blocked ? 'Aktivieren' : 'Deaktivieren'}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${u.blocked ? 'bg-white/10' : 'bg-brand-500'} disabled:opacity-40`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${u.blocked ? 'translate-x-1' : 'translate-x-6'}`} />
-              </button>
-              <span className={`text-xs font-medium w-16 text-center ${u.blocked ? 'text-white/30' : 'text-brand-400'}`}>
-                {u.blocked ? 'Inaktiv' : 'Aktiv'}
-              </span>
-              {/* Edit */}
-              <button
-                onClick={() => setEditing(u)}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-xs font-semibold transition"
-              >Bearbeiten</button>
-              {/* Delete */}
-              <button disabled={busyId === u.id} onClick={() => remove(u)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-semibold disabled:opacity-40">Löschen</button>
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                {/* Active / Inactive toggle */}
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={busyId === u.id + '_block'}
+                    onClick={() => toggleBlocked(u)}
+                    title={u.blocked ? 'Aktivieren' : 'Deaktivieren'}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${u.blocked ? 'bg-white/10' : 'bg-brand-500'} disabled:opacity-40`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${u.blocked ? 'translate-x-1' : 'translate-x-6'}`} />
+                  </button>
+                  <span className={`text-xs font-medium ${u.blocked ? 'text-white/30' : 'text-brand-400'}`}>
+                    {u.blocked ? 'Inaktiv' : 'Aktiv'}
+                  </span>
+                </div>
+                {/* Edit */}
+                <button
+                  onClick={() => setEditing(u)}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-xs font-semibold transition"
+                >Bearbeiten</button>
+                {/* Delete */}
+                <button disabled={busyId === u.id} onClick={() => remove(u)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-semibold disabled:opacity-40">Löschen</button>
+              </div>
             </div>
           ))}
         </div>
