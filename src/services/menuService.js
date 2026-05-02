@@ -38,6 +38,7 @@ async function listSliderItems() {
       id: true, name: true, description: true, price: true, imageUrl: true,
       sliderSortOrder: true,
       category: { select: { id: true, name: true } },
+      extras: { include: { extra: true } },
     },
   });
 }

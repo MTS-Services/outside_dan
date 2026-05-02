@@ -18,7 +18,7 @@ async function create(req, res) {
     url,
     alt,
     sortOrder: sortOrder ? Number(sortOrder) : 0,
-    showOnHome: showOnHome !== 'false',
+    showOnHome: showOnHome === 'true' || showOnHome === true,
   });
   res.status(201).json(image);
 }

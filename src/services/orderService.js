@@ -354,7 +354,7 @@ async function dashboardStats() {
   const since30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
 
-  const acceptedStatuses = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+  const acceptedStatuses = ['ACCEPTED'];
 
   const [orders, products, allTimeRevResult, pendingCount] = await Promise.all([
     prisma.order.findMany({
