@@ -4,15 +4,10 @@ import toast from 'react-hot-toast';
 import api from '../api/client';
 
 const STATUS_META = {
-  PENDING:          { label: 'Wartet auf Bestätigung', color: 'bg-yellow-500',   text: 'text-yellow-300' },
-  ACCEPTED:         { label: 'Akzeptiert',             color: 'bg-blue-500',     text: 'text-blue-300'   },
-  PREPARING:        { label: 'In der Küche',           color: 'bg-purple-500',   text: 'text-purple-300' },
-  READY:            { label: 'Bereit',                 color: 'bg-pink-500',     text: 'text-pink-300'   },
-  OUT_FOR_DELIVERY: { label: 'Unterwegs',              color: 'bg-cyan-500',     text: 'text-cyan-300'   },
-  DELIVERED:        { label: 'Geliefert',              color: 'bg-emerald-500',  text: 'text-emerald-300'},
-  DECLINED:         { label: 'Abgelehnt',              color: 'bg-red-500',      text: 'text-red-300'    },
-  CANCELLED:        { label: 'Storniert',              color: 'bg-gray-500',     text: 'text-gray-300'   },
   PENDING_PAYMENT:  { label: 'Zahlung ausstehend',     color: 'bg-orange-500',   text: 'text-orange-300' },
+  PENDING:          { label: 'Wartet auf Bestätigung', color: 'bg-yellow-500',   text: 'text-yellow-300' },
+  ACCEPTED:         { label: 'Akzeptiert',             color: 'bg-emerald-500',  text: 'text-emerald-300'},
+  DECLINED:         { label: 'Abgelehnt',              color: 'bg-red-500',      text: 'text-red-300'    },
 };
 
 export default function MyOrdersPanel() {

@@ -6,7 +6,7 @@ import { getSocket } from '../../api/socket';
 
 const PAGE_SIZE = 8;
 const NEW_STATUSES = ['PENDING'];
-const ACCEPTED_STATUSES = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DECLINED'];
+const ACCEPTED_STATUSES = ['ACCEPTED', 'DECLINED'];
 
 export default function AdminOrders() {
   const audioRef = useRef(null);
@@ -174,11 +174,6 @@ const STATUS_MAP = {
   PENDING:         'Eingegangen',
   ACCEPTED:        'Akzeptiert',
   DECLINED:        'Abgelehnt',
-  PREPARING:       'Kochend',
-  READY:           'Bereit',
-  OUT_FOR_DELIVERY:'Unterwegs',
-  DELIVERED:       'Geliefert',
-  CANCELLED:       'Storniert',
 };
 
 const PAYMENT_MAP = {

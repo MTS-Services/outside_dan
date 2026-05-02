@@ -5,25 +5,17 @@ import { COUNTRIES } from '../../data/countries';
 import FlagIcon from '../../components/FlagIcon';
 
 const STATUS_LABEL = {
+  PENDING_PAYMENT: 'Zahlung ausstehend',
   PENDING: 'Ausstehend',
   ACCEPTED: 'Akzeptiert',
-  PREPARING: 'In Zubereitung',
-  READY: 'Bereit',
-  OUT_FOR_DELIVERY: 'Unterwegs',
-  DELIVERED: 'Geliefert',
   DECLINED: 'Abgelehnt',
-  CANCELLED: 'Storniert',
 };
 
 const STATUS_COLOR = {
+  PENDING_PAYMENT: 'bg-orange-500/20 text-orange-300 border border-orange-500/30',
   PENDING: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
   ACCEPTED: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
-  PREPARING: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-  READY: 'bg-pink-500/20 text-pink-300 border border-pink-500/30',
-  OUT_FOR_DELIVERY: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
-  DELIVERED: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
   DECLINED: 'bg-red-500/20 text-red-400 border border-red-500/30',
-  CANCELLED: 'bg-red-500/20 text-red-400 border border-red-500/30',
 };
 
 const PAYMENT_LABEL = { CASH: 'Bar', CARD: 'Karte', PAYPAL: 'PayPal' };
@@ -77,8 +69,8 @@ export default function AdminCustomerDetail() {
     <div className="p-6 text-center text-white/50">Kunde nicht gefunden.</div>
   );
 
-  const delivered = orders.filter(o => o.status === 'DELIVERED');
-  const totalSpent = delivered.reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const accepted = orders.filter(o => o.status === 'ACCEPTED');
+  const totalSpent = accepted.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const initials = customer.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -122,7 +114,7 @@ export default function AdminCustomerDetail() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3 pt-1">
           <StatBox label="Bestellungen gesamt" value={orders.length} />
-          <StatBox label="Abgeschlossen" value={delivered.length} accent="text-emerald-400" />
+          <StatBox label="Abgeschlossen" value={accepted.length} accent="text-emerald-400" />
           <StatBox label="Ausgegeben" value={`€${totalSpent.toFixed(2)}`} accent="text-emerald-400" />
         </div>
       </div>
