@@ -83,12 +83,14 @@ export default function Checkout() {
   useEffect(() => {
     if (!paypalConfig?.clientId) return;
     if (window.paypal) { setPaypalReady(true); return; }
-    
-    // Check if script is already present
-    if (document.querySelector(`script[src*="paypal.com/sdk/js?client-id=${paypalConfig.clientId}"]`)) {
+
+    // If script is already in DOM (e.g. strict-mode double-invoke), wait for it
+    const existing = document.querySelector('script[src*="paypal.com/sdk/js"]');
+    if (existing) {
+      existing.addEventListener('load', () => setPaypalReady(true));
       return;
     }
-    
+
     const s = document.createElement('script');
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalConfig.clientId)}&currency=${encodeURIComponent(paypalConfig.currency || 'EUR')}&intent=capture`;
     s.async = true;
@@ -118,7 +120,7 @@ export default function Checkout() {
 
   const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const buildPayload = (paymentMethod, paypalOrderId) => ({
+  const buildPayload = (paymentMethod, paypalOrderId, paypalCaptureId) => ({
     customerName: form.customerName,
     customerPhone: `${findCountry(form.customerPhoneCountry).dial} ${form.customerPhone}`.trim(),
     customerPhoneCountry: form.customerPhoneCountry,
@@ -129,6 +131,7 @@ export default function Checkout() {
     notes: form.notes,
     paymentMethod,
     paypalOrderId,
+    paypalCaptureId: paypalCaptureId || null,
     items: items.map((i) => ({
       menuItemId: i.menuItemId,
       quantity: i.quantity,
@@ -207,9 +210,9 @@ export default function Checkout() {
       onApprove: async (data) => {
         setPaypalProcessing(true);
         try {
-          const { data: cap } = await api.post('/paypal/capture-order', { orderId: data.orderID });
-          if (!cap?.captured) throw new Error('Zahlung nicht erfolgreich');
-          await placeOrder(buildPayload('PAYPAL', data.orderID));
+          const { data: cap } = await api.post('/paypal/capture-order', { paypalOrderId: data.orderID });
+          if (!cap?.success) throw new Error('Zahlung nicht erfolgreich');
+          await placeOrder(buildPayload('PAYPAL', data.orderID, cap.captureId));
         } catch (err) {
           toast.error(err.displayMessage || err.message || 'PayPal-Zahlung fehlgeschlagen');
         } finally {
@@ -278,6 +281,9 @@ export default function Checkout() {
           <h3 className="text-2xl pt-4">Zahlung</h3>
           <div className="grid grid-cols-1 gap-3">
             <PayOption form={form} setForm={setForm} value="CASH" label="Bar bei Lieferung" />
+            {paypalConfig?.clientId && (
+              <PayOption form={form} setForm={setForm} value="PAYPAL" label="PayPal" />
+            )}
           </div>
         </div>
 
@@ -333,8 +339,15 @@ export default function Checkout() {
             </div>
 
             {form.paymentMethod === 'PAYPAL' ? (
-              <div className="text-center text-sm font-medium text-white/60">
-                Mit PayPal wird der Betrag erst abgebucht, bevor die Bestellung aufgeben wird.
+              <div>
+                <p className="text-center text-sm text-white/60 mb-3">
+                  Mit PayPal wird der Betrag erst abgebucht, bevor die Bestellung aufgegeben wird.
+                </p>
+                {paypalProcessing && <p className="text-center text-sm text-brand-400 mb-2">Bitte warten…</p>}
+                {!paypalReady && !paypalProcessing && (
+                  <p className="text-center text-sm text-white/40 py-3">PayPal wird geladen…</p>
+                )}
+                <div ref={paypalContainerRef} className="min-h-[50px]" />
               </div>
             ) : (
               <button disabled={submitting} type="submit" className="btn-primary w-full justify-center py-4 text-lg shadow-brand">
