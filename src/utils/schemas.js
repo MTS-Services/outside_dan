@@ -111,6 +111,7 @@ const orderCreate = Joi.object({
   notes: Joi.string().allow('', null).max(500),
   paymentMethod: Joi.string().valid('CASH', 'CARD_ON_DELIVERY', 'PAYPAL').default('CASH'),
   paypalOrderId: Joi.string().allow('', null),
+  paypalCaptureId: Joi.string().allow('', null),
   items: Joi.array().items(orderItemSchema).min(1).required(),
 });
 
