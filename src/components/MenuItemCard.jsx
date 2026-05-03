@@ -28,7 +28,9 @@ function TagBadge({ tag }) {
 
 export default function MenuItemCard({ item }) {
   const add = useCart((s) => s.add);
+  const cartItems = useCart((s) => s.items);
   const openCart = useCartUI((s) => s.openDrawer);
+  const alreadyInCart = cartItems.some((i) => i.menuItemId === item.id);
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
@@ -86,10 +88,10 @@ export default function MenuItemCard({ item }) {
         )}
         <button
           onClick={onAddClick}
-          disabled={item.isAvailable === false}
+          disabled={item.isAvailable === false || alreadyInCart}
           className="btn-primary mt-6 w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {item.isAvailable === false ? 'Nicht verfügbar' : 'In den Warenkorb'}
+          {item.isAvailable === false ? 'Nicht verfügbar' : alreadyInCart ? 'Bereits im Warenkorb' : 'In den Warenkorb'}
         </button>
       </div>
 
