@@ -29,15 +29,17 @@ function Field({ label, children }) {
   );
 }
 
-function PayOption({ form, setForm, value, label }) {
+function PayOption({ form, setForm, value, label, disabled }) {
   return (
     <label className={`
-      flex items-center justify-center p-3 rounded-xl border cursor-pointer select-none transition-all
-      ${form.paymentMethod === value 
-        ? 'border-brand-500 bg-brand-500/10 text-brand-400 font-bold' 
-        : 'border-white/10 hover:border-white/30 text-white/70'}
+      flex items-center justify-center p-3 rounded-xl border select-none transition-all
+      ${disabled
+        ? 'border-white/5 text-white/20 cursor-not-allowed opacity-50'
+        : form.paymentMethod === value 
+          ? 'border-brand-500 bg-brand-500/10 text-brand-400 font-bold cursor-pointer' 
+          : 'border-white/10 hover:border-white/30 text-white/70 cursor-pointer'}
     `}>
-      <input type="radio" className="hidden" checked={form.paymentMethod === value} onChange={() => setForm({ ...form, paymentMethod: value })} />
+      <input type="radio" className="hidden" disabled={disabled} checked={form.paymentMethod === value} onChange={() => !disabled && setForm({ ...form, paymentMethod: value })} />
       {label}
     </label>
   );
@@ -117,6 +119,13 @@ export default function Checkout() {
   const sub = subtotal();
   const fee = items.length ? 2.5 : 0;
   const total = sub + fee;
+
+  const infoComplete =
+    form.customerName.trim() !== '' &&
+    form.customerPhone.trim() !== '' &&
+    form.street.trim() !== '' &&
+    form.postalCode.trim() !== '' &&
+    form.city.trim() !== '';
 
   const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -279,10 +288,15 @@ export default function Checkout() {
           </Field>
 
           <h3 className="text-2xl pt-4">Zahlung</h3>
-          <div className="grid grid-cols-1 gap-3">
-            <PayOption form={form} setForm={setForm} value="CASH" label="Bar bei Lieferung" />
+          {!infoComplete && (
+            <p className="text-sm text-yellow-400/80 bg-yellow-400/10 border border-yellow-400/20 rounded-lg px-3 py-2">
+              Bitte fülle zuerst alle Pflichtfelder aus, um eine Zahlungsart auszuwählen.
+            </p>
+          )}
+          <div className={`grid grid-cols-1 gap-3 ${!infoComplete ? 'pointer-events-none' : ''}`}>
+            <PayOption form={form} setForm={setForm} value="CASH" label="Bar bei Lieferung" disabled={!infoComplete} />
             {paypalConfig?.clientId && (
-              <PayOption form={form} setForm={setForm} value="PAYPAL" label="PayPal" />
+              <PayOption form={form} setForm={setForm} value="PAYPAL" label="PayPal" disabled={!infoComplete} />
             )}
           </div>
         </div>
