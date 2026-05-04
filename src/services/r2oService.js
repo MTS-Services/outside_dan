@@ -39,10 +39,12 @@ const _cache = {
   userId: undefined,
   vatId: undefined,
   productGroupId: undefined,
+  customerCategoryId: undefined,
   products: {}, // name -> product_id
   _usersFetched: false,
   _vatFetched: false,
   _pgFetched: false,
+  _ccFetched: false,
 };
 
 async function getPaymentMethods() {
@@ -108,6 +110,22 @@ async function resolveDefaultProductGroupId() {
   _cache.productGroupId = regular ? regular.productgroup_id : undefined;
   _cache._pgFetched = true;
   return _cache.productGroupId;
+}
+
+async function resolveDefaultCustomerCategoryId() {
+  if (_cache._ccFetched) return _cache.customerCategoryId;
+  try {
+    const { data } = await client.get('/customerCategories');
+    const cats = Array.isArray(data) ? data : [];
+    if (cats.length) {
+      _cache.customerCategoryId = cats[0].customerCategory_id || cats[0].id;
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[r2o] could not fetch customerCategories:', err.response?.status, err.response?.data || err.message);
+  }
+  _cache._ccFetched = true;
+  return _cache.customerCategoryId;
 }
 
 /**
@@ -183,12 +201,16 @@ async function resolveCustomerId(order) {
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
   const fullName = order.customerName || order.customerEmail || 'Kunde';
 
+  // r2o requires customerCategory_id — pick the first one available on the account
+  const customerCategoryId = await resolveDefaultCustomerCategoryId();
+
   // r2o has used several different field-name conventions across API
   // versions. We try the most common payload first, then retry with
   // alternative names if the first attempt 4xx's.
   const payloads = [
     // v1 docs convention (customer_*)
     {
+      ...(customerCategoryId !== undefined ? { customerCategory_id: customerCategoryId } : {}),
       customer_typeId: 1, // 1 = private person
       customer_name: fullName,
       customer_firstname: firstName,
@@ -202,6 +224,7 @@ async function resolveCustomerId(order) {
     },
     // older / alt convention (no prefix)
     {
+      ...(customerCategoryId !== undefined ? { customerCategory_id: customerCategoryId } : {}),
       name: fullName,
       firstname: firstName,
       lastname: lastName,
