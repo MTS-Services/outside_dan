@@ -14,6 +14,10 @@ const { initSocket } = require('./sockets');
 
 const app = express();
 
+// Trust the first reverse-proxy hop (nginx / Caddy / Railway etc.) so that
+// express-rate-limit can correctly read the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
