@@ -189,21 +189,10 @@ async function buildInvoicePayload(order) {
     })
   );
 
-  // Split customerName into first/last for the address fields
-  const nameParts = (order.customerName || '').trim().split(' ');
+  // Split customerName into first / last name
+  const nameParts = (order.customerName || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || firstName;
-
-  const invoiceAddress = {
-    invoiceAddress_firstname: firstName,
-    invoiceAddress_lastname: lastName,
-    invoiceAddress_street: order.street || '',
-    invoiceAddress_zip: order.postalCode || '',
-    invoiceAddress_city: order.city || '',
-    invoiceAddress_country: 'AT',
-    ...(order.customerEmail ? { invoiceAddress_email: order.customerEmail } : {}),
-    ...(order.customerPhone ? { invoiceAddress_phone: order.customerPhone } : {}),
-  };
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
   // Build notes line: order notes + payment info
   const notesParts = [];
@@ -214,13 +203,22 @@ async function buildInvoicePayload(order) {
   // PayPal orders are already captured — mark the invoice as paid immediately
   const isPaid = order.paymentMethod === 'PAYPAL';
 
+  // All invoiceAddress_* fields must be at the TOP LEVEL of the payload (not nested)
   return {
     items,
-    invoiceAddress,
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
     invoice_text: notesParts.join(' | '),
     invoice_isPaid: isPaid,
+    // Customer / address fields — spread flat
+    invoiceAddress_firstname: firstName,
+    invoiceAddress_lastname: lastName,
+    invoiceAddress_street: order.street || '',
+    invoiceAddress_zip: order.postalCode || '',
+    invoiceAddress_city: order.city || '',
+    invoiceAddress_country: 'AT',
+    ...(order.customerEmail ? { invoiceAddress_email: order.customerEmail } : {}),
+    ...(order.customerPhone ? { invoiceAddress_phone: order.customerPhone } : {}),
   };
 }
 
