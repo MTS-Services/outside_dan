@@ -208,11 +208,19 @@ async function buildInvoicePayload(order) {
   // PayPal orders are already captured — mark the invoice as paid immediately
   const isPaid = order.paymentMethod === 'PAYPAL';
 
+  // Compose details once — used on both A4 (invoice_text) and receipt (invoice_customText).
+  // Receipts are narrow, so we use line breaks instead of " | " for readability.
+  const detailsInline = notesParts.join(' | ');
+  const detailsMultiline = notesParts.join('\n');
+
   return {
     items,
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
-    invoice_text: notesParts.join(' | '),
+    // Shown on A4 PDF invoice
+    invoice_text: detailsInline,
+    // Shown on thermal receipt (printed at the bottom of the receipt)
+    invoice_customText: detailsMultiline,
     invoice_isPaid: isPaid,
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
