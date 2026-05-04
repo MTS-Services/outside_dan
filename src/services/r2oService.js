@@ -194,8 +194,13 @@ async function buildInvoicePayload(order) {
   const firstName = nameParts[0] || '';
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
-  // Build notes line: order notes + payment info
+  // Build invoice text: full customer details as key-value pairs + notes + payment
   const notesParts = [];
+  notesParts.push(`Name: ${order.customerName || ''}`);
+  if (order.customerPhone) notesParts.push(`Tel: ${order.customerPhone}`);
+  if (order.customerEmail) notesParts.push(`Email: ${order.customerEmail}`);
+  const addressParts = [order.street, order.postalCode, order.city].filter(Boolean).join(', ');
+  if (addressParts) notesParts.push(`Adresse: ${addressParts}`);
   if (order.notes) notesParts.push(`Hinweis: ${order.notes}`);
   notesParts.push(`Zahlung: ${order.paymentMethod}`);
   if (order.paypalOrderId) notesParts.push(`PayPal-ID: ${order.paypalOrderId}`);
@@ -203,14 +208,24 @@ async function buildInvoicePayload(order) {
   // PayPal orders are already captured — mark the invoice as paid immediately
   const isPaid = order.paymentMethod === 'PAYPAL';
 
-  // All invoiceAddress_* fields must be at the TOP LEVEL of the payload (not nested)
   return {
     items,
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
     invoice_text: notesParts.join(' | '),
     invoice_isPaid: isPaid,
-    // Customer / address fields — spread flat
+    // Customer / address fields — nested object (r2o API) + flat top-level as fallback
+    invoiceAddress: {
+      invoiceAddress_firstname: firstName,
+      invoiceAddress_lastname: lastName,
+      invoiceAddress_street: order.street || '',
+      invoiceAddress_zip: order.postalCode || '',
+      invoiceAddress_city: order.city || '',
+      invoiceAddress_country: 'AT',
+      ...(order.customerEmail ? { invoiceAddress_email: order.customerEmail } : {}),
+      ...(order.customerPhone ? { invoiceAddress_phone: order.customerPhone } : {}),
+    },
+    // Also spread flat at top level (some r2o versions require this)
     invoiceAddress_firstname: firstName,
     invoiceAddress_lastname: lastName,
     invoiceAddress_street: order.street || '',
