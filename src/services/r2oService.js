@@ -192,7 +192,7 @@ async function buildInvoicePayload(order) {
   // Split customerName into first / last name
   const nameParts = (order.customerName || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
-  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+  const baseLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
   // Build invoice text: full customer details as key-value pairs + notes + payment
   const notesParts = [];
@@ -208,10 +208,35 @@ async function buildInvoicePayload(order) {
   // PayPal orders are already captured — mark the invoice as paid immediately
   const isPaid = order.paymentMethod === 'PAYPAL';
 
-  // Compose details once — used on both A4 (invoice_text) and receipt (invoice_customText).
-  // Receipts are narrow, so we use line breaks instead of " | " for readability.
+  // A4 PDF renders `invoice_text` at the bottom — use the inline " | "-joined version.
   const detailsInline = notesParts.join(' | ');
-  const detailsMultiline = notesParts.join('\n');
+
+  // Thermal receipts in ready2order have a FIXED layout: they only print the
+  // items, totals, payment, and the `invoiceAddress_*` block (firstname,
+  // lastname, street, zip, city, email). Fields like `invoice_text` /
+  // `invoice_customText` are NOT rendered on the receipt.
+  //
+  // To force the meta info (phone, notes, payment method, PayPal-ID) onto the
+  // receipt we pack it into the `invoiceAddress_lastname` field as a
+  // multi-line string. ready2order prints lastname verbatim including
+  // newlines, so each line shows up on the receipt right under the customer
+  // name.
+  const extraReceiptLines = [];
+  if (order.customerPhone) extraReceiptLines.push(`Tel: ${order.customerPhone}`);
+  if (order.notes) extraReceiptLines.push(`Hinweis: ${order.notes}`);
+  extraReceiptLines.push(`Zahlung: ${order.paymentMethod}`);
+  if (order.paypalOrderId) extraReceiptLines.push(`PayPal-ID: ${order.paypalOrderId}`);
+
+  const lastNameForReceipt = [baseLastName, ...extraReceiptLines]
+    .filter(Boolean)
+    .join('\n');
+
+  // Also append the meta info to the first item's `item_comment` so it shows
+  // up directly under the first product line on the receipt as a fallback in
+  // case the lastname newlines get collapsed.
+  if (items.length > 0 && extraReceiptLines.length > 0) {
+    items[0].item_comment = extraReceiptLines.join(' | ');
+  }
 
   return {
     items,
@@ -219,13 +244,11 @@ async function buildInvoicePayload(order) {
     ...(userId !== undefined ? { user_id: userId } : {}),
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
-    // Shown on thermal receipt (printed at the bottom of the receipt)
-    invoice_customText: detailsMultiline,
     invoice_isPaid: isPaid,
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
-      invoiceAddress_lastname: lastName,
+      invoiceAddress_lastname: lastNameForReceipt,
       invoiceAddress_street: order.street || '',
       invoiceAddress_zip: order.postalCode || '',
       invoiceAddress_city: order.city || '',
@@ -235,7 +258,7 @@ async function buildInvoicePayload(order) {
     },
     // Also spread flat at top level (some r2o versions require this)
     invoiceAddress_firstname: firstName,
-    invoiceAddress_lastname: lastName,
+    invoiceAddress_lastname: lastNameForReceipt,
     invoiceAddress_street: order.street || '',
     invoiceAddress_zip: order.postalCode || '',
     invoiceAddress_city: order.city || '',
