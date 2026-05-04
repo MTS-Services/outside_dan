@@ -153,8 +153,8 @@ async function resolveCustomerId(order) {
   // Need at least a name or an email to create a usable customer
   if (!order.customerName && !order.customerEmail) return undefined;
 
+  // Try to find an existing customer first
   try {
-    // Search by email first if we have one (more reliable match), then by name
     const search = order.customerEmail || order.customerName;
     const { data: searchData } = await client.get('/customers', {
       params: { search, limit: 25 },
@@ -162,39 +162,77 @@ async function resolveCustomerId(order) {
     const list = Array.isArray(searchData) ? searchData : [];
     const match = list.find(
       (c) =>
-        (order.customerEmail && c.customer_email === order.customerEmail) ||
-        (order.customerName && c.customer_name === order.customerName)
+        (order.customerEmail &&
+          (c.customer_email === order.customerEmail ||
+            c.email === order.customerEmail)) ||
+        (order.customerName &&
+          (c.customer_name === order.customerName ||
+            c.name === order.customerName))
     );
-    if (match) return match.customer_id;
-  } catch {
-    // search failures should not block invoice creation — fall through to create
+    if (match) {
+      return match.customer_id || match.id;
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[r2o] customer search failed:', err.response?.status, err.response?.data || err.message);
   }
 
   // Split name into first / last
   const nameParts = (order.customerName || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+  const fullName = order.customerName || order.customerEmail || 'Kunde';
 
-  const createPayload = {
-    customer_name: order.customerName || order.customerEmail || 'Kunde',
-    customer_firstname: firstName,
-    customer_lastname: lastName,
-    ...(order.customerEmail ? { customer_email: order.customerEmail } : {}),
-    ...(order.customerPhone ? { customer_phone: order.customerPhone } : {}),
-    ...(order.street ? { customer_street: order.street } : {}),
-    ...(order.postalCode ? { customer_zip: order.postalCode } : {}),
-    ...(order.city ? { customer_city: order.city } : {}),
-    customer_country: 'AT',
-  };
+  // r2o has used several different field-name conventions across API
+  // versions. We try the most common payload first, then retry with
+  // alternative names if the first attempt 4xx's.
+  const payloads = [
+    // v1 docs convention (customer_*)
+    {
+      customer_typeId: 1, // 1 = private person
+      customer_name: fullName,
+      customer_firstname: firstName,
+      customer_lastname: lastName,
+      ...(order.customerEmail ? { customer_email: order.customerEmail } : {}),
+      ...(order.customerPhone ? { customer_phone: order.customerPhone } : {}),
+      ...(order.street ? { customer_street: order.street } : {}),
+      ...(order.postalCode ? { customer_zip: order.postalCode } : {}),
+      ...(order.city ? { customer_city: order.city } : {}),
+      customer_country: 'AT',
+    },
+    // older / alt convention (no prefix)
+    {
+      name: fullName,
+      firstname: firstName,
+      lastname: lastName,
+      ...(order.customerEmail ? { email: order.customerEmail } : {}),
+      ...(order.customerPhone ? { phone: order.customerPhone } : {}),
+      ...(order.street ? { street: order.street } : {}),
+      ...(order.postalCode ? { zip: order.postalCode } : {}),
+      ...(order.city ? { city: order.city } : {}),
+      country: 'AT',
+    },
+  ];
 
-  try {
-    const { data: created } = await client.post('/customers', createPayload);
-    return created.customer_id;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[r2o] customer creation failed:', err.response?.data || err.message);
-    return undefined;
+  for (const payload of payloads) {
+    try {
+      const { data: created } = await client.post('/customers', payload);
+      const id = created.customer_id || created.id;
+      if (id) {
+        // eslint-disable-next-line no-console
+        console.log('[r2o] customer created:', id, fullName);
+        return id;
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[r2o] customer creation attempt failed:',
+        err.response?.status,
+        JSON.stringify(err.response?.data) || err.message
+      );
+    }
   }
+  return undefined;
 }
 
 /** Build invoice payload from an internal order. */
