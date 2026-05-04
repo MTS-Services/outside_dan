@@ -143,12 +143,67 @@ async function resolveProductId(name, price, vatId) {
   return created.product_id;
 }
 
+/**
+ * Create (or fetch) a r2o customer record for an order.
+ * ready2order renders the linked customer's name/address at the top of both
+ * the A4 invoice and the thermal receipt — much cleaner than embedding
+ * details into item names.
+ */
+async function resolveCustomerId(order) {
+  // Need at least a name or an email to create a usable customer
+  if (!order.customerName && !order.customerEmail) return undefined;
+
+  try {
+    // Search by email first if we have one (more reliable match), then by name
+    const search = order.customerEmail || order.customerName;
+    const { data: searchData } = await client.get('/customers', {
+      params: { search, limit: 25 },
+    });
+    const list = Array.isArray(searchData) ? searchData : [];
+    const match = list.find(
+      (c) =>
+        (order.customerEmail && c.customer_email === order.customerEmail) ||
+        (order.customerName && c.customer_name === order.customerName)
+    );
+    if (match) return match.customer_id;
+  } catch {
+    // search failures should not block invoice creation — fall through to create
+  }
+
+  // Split name into first / last
+  const nameParts = (order.customerName || '').trim().split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+  const createPayload = {
+    customer_name: order.customerName || order.customerEmail || 'Kunde',
+    customer_firstname: firstName,
+    customer_lastname: lastName,
+    ...(order.customerEmail ? { customer_email: order.customerEmail } : {}),
+    ...(order.customerPhone ? { customer_phone: order.customerPhone } : {}),
+    ...(order.street ? { customer_street: order.street } : {}),
+    ...(order.postalCode ? { customer_zip: order.postalCode } : {}),
+    ...(order.city ? { customer_city: order.city } : {}),
+    customer_country: 'AT',
+  };
+
+  try {
+    const { data: created } = await client.post('/customers', createPayload);
+    return created.customer_id;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[r2o] customer creation failed:', err.response?.data || err.message);
+    return undefined;
+  }
+}
+
 /** Build invoice payload from an internal order. */
 async function buildInvoicePayload(order) {
-  const [paymentMethodId, userId, vatId] = await Promise.all([
+  const [paymentMethodId, userId, vatId, customerId] = await Promise.all([
     resolvePaymentMethodId(order.paymentMethod),
     resolveUserId(),
     resolveDefaultVatId(),
+    resolveCustomerId(order),
   ]);
 
   const items = [];
@@ -212,46 +267,40 @@ async function buildInvoicePayload(order) {
   const detailsInline = notesParts.join(' | ');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Thermal receipts in ready2order have a FIXED template that ignores
-  // `invoice_text`, `invoice_customText`, `item_comment`, and even most
-  // `invoiceAddress_*` fields. The ONLY field that reliably renders extra
-  // text on the thermal receipt is `item_name` (we already see this with the
-  // "(notes)" suffix on product lines).
-  //
-  // So to force customer details onto the receipt we prepend a synthetic
-  // zero-price "info" line item whose name carries the customer block. This
-  // line shows up at the top of the receipt above the real products.
+  // Receipt rendering strategy:
+  //   1. Primary: link a customer record via `customer_id` — r2o then prints
+  //      the customer's name/address at the top of the receipt automatically.
+  //   2. Fallback: if customer creation failed, prepend a synthetic zero-price
+  //      "Kundeninfo" line item so the details still appear on the receipt.
   // ─────────────────────────────────────────────────────────────────────────
-  const receiptInfoLines = [];
-  if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
-  if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
-  if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
-  if (addressParts) receiptInfoLines.push(`Adr: ${addressParts}`);
-  if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
-  if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
+  if (!customerId) {
+    const receiptInfoLines = [];
+    if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
+    if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
+    if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
+    if (addressParts) receiptInfoLines.push(`Adr: ${addressParts}`);
+    if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
+    if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
 
-  if (receiptInfoLines.length > 0) {
-    // Resolve (or create once) a dedicated "Customer Info" product so we can
-    // push a zero-price line that r2o will render on the receipt.
-    const infoProductId = await resolveProductId('Kundeninfo', 0, vatId);
-    items.unshift({
-      product_id: infoProductId,
-      // Wrap each detail in parentheses on its own line — r2o usually
-      // preserves newlines inside item_name on thermal receipts.
-      item_name: `Kundeninfo\n${receiptInfoLines.join('\n')}`,
-      item_price: 0,
-      item_quantity: 1,
-      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-    });
+    if (receiptInfoLines.length > 0) {
+      const infoProductId = await resolveProductId('Kundeninfo', 0, vatId);
+      items.unshift({
+        product_id: infoProductId,
+        item_name: `Kundeninfo\n${receiptInfoLines.join('\n')}`,
+        item_price: 0,
+        item_quantity: 1,
+        ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+      });
+    }
   }
 
-  // Split full customer name into firstname / lastname for the (A4) address block.
   const lastNameForReceipt = baseLastName;
 
   return {
     items,
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
+    ...(customerId !== undefined ? { customer_id: customerId } : {}),
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
