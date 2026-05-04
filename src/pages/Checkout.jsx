@@ -151,11 +151,11 @@ export default function Checkout() {
 
   function validateForm() {
     if (!items.length) { toast.error('Warenkorb ist leer'); return false; }
-    if (!form.customerName.trim()) { toast.error('Name ist erforderlich'); return false; }
-    if (!form.customerPhone.trim()) { toast.error('Telefon ist erforderlich'); return false; }
-    if (!form.street.trim() || !form.postalCode.trim() || !form.city.trim()) {
-      toast.error('Lieferadresse ist unvollständig'); return false;
-    }
+    if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
+    if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
+    if (form.street.trim().length < 3) { toast.error('Straße ist erforderlich (min. 3 Zeichen)'); return false; }
+    if (form.postalCode.trim().length < 2) { toast.error('Postleitzahl ist erforderlich'); return false; }
+    if (!form.city.trim()) { toast.error('Stadt ist erforderlich'); return false; }
     return true;
   }
 
