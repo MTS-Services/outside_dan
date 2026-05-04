@@ -329,30 +329,30 @@ async function buildInvoicePayload(order) {
 
   // ─────────────────────────────────────────────────────────────────────────
   // Receipt rendering strategy:
-  //   1. Primary: link a customer record via `customer_id` — r2o then prints
-  //      the customer's name/address at the top of the receipt automatically.
-  //   2. Fallback: if customer creation failed, prepend a synthetic zero-price
-  //      "Kundeninfo" line item so the details still appear on the receipt.
+  //   - We always link a customer record via `customer_id` (good for r2o
+  //     reports + admin invoice list).
+  //   - We ALSO prepend a synthetic zero-price "Kundeninfo" line item
+  //     because r2o's thermal receipt template on this account does not
+  //     auto-print the linked customer block. Item names are the only field
+  //     that reliably renders on the receipt.
   // ─────────────────────────────────────────────────────────────────────────
-  if (!customerId) {
-    const receiptInfoLines = [];
-    if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
-    if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
-    if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
-    if (addressParts) receiptInfoLines.push(`Adr: ${addressParts}`);
-    if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
-    if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
+  const receiptInfoLines = [];
+  if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
+  if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
+  if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
+  if (addressParts) receiptInfoLines.push(`Adr: ${addressParts}`);
+  if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
+  if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
 
-    if (receiptInfoLines.length > 0) {
-      const infoProductId = await resolveProductId('Kundeninfo', 0, vatId);
-      items.unshift({
-        product_id: infoProductId,
-        item_name: `Kundeninfo\n${receiptInfoLines.join('\n')}`,
-        item_price: 0,
-        item_quantity: 1,
-        ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-      });
-    }
+  if (receiptInfoLines.length > 0) {
+    const infoProductId = await resolveProductId('Kundeninfo', 0, vatId);
+    items.unshift({
+      product_id: infoProductId,
+      item_name: `Kundeninfo\n${receiptInfoLines.join('\n')}`,
+      item_price: 0,
+      item_quantity: 1,
+      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+    });
   }
 
   const lastNameForReceipt = baseLastName;
