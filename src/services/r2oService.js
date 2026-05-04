@@ -56,11 +56,26 @@ async function resolvePaymentMethodId(orderPaymentMethod) {
   try {
     const methods = await getPaymentMethods();
     if (!methods.length) return undefined;
-    const wantCard = orderPaymentMethod === 'CARD_ON_DELIVERY';
-    const match = methods.find((m) =>
-      wantCard ? m.paymentType_id === 2 : m.paymentType_id === 1
-    );
-    return (match || methods[0]).payment_id;
+
+    if (orderPaymentMethod === 'PAYPAL') {
+      // Try to find a PayPal payment method by name first
+      const paypal = methods.find((m) =>
+        m.paymentMethod_name && m.paymentMethod_name.toLowerCase().includes('paypal')
+      );
+      if (paypal) return paypal.payment_id;
+      // Fallback: use card type (online payment) if available
+      const card = methods.find((m) => m.paymentType_id === 2);
+      return (card || methods[0]).payment_id;
+    }
+
+    if (orderPaymentMethod === 'CARD_ON_DELIVERY') {
+      const card = methods.find((m) => m.paymentType_id === 2);
+      return (card || methods[0]).payment_id;
+    }
+
+    // CASH or anything else
+    const cash = methods.find((m) => m.paymentType_id === 1);
+    return (cash || methods[0]).payment_id;
   } catch {
     return undefined;
   }
@@ -136,27 +151,76 @@ async function buildInvoicePayload(order) {
     resolveDefaultVatId(),
   ]);
 
-  const items = await Promise.all(
+  const items = [];
+  await Promise.all(
     order.items.map(async (it) => {
       const productId =
         it.menuItem?.r2oProductId ||
         (await resolveProductId(it.name, Number(it.price), vatId));
-      return {
+
+      // Build item name — append note if present
+      const itemName = it.notes
+        ? `${it.name} (${it.notes})`
+        : it.name;
+
+      items.push({
         product_id: productId,
-        item_name: it.name,
+        item_name: itemName,
         item_price: Number(it.price),
         item_quantity: it.quantity,
         ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-      };
+      });
+
+      // Add each extra as its own line item
+      if (it.extras && it.extras.length) {
+        for (const ex of it.extras) {
+          const exProductId = await resolveProductId(
+            `Extra: ${ex.name}`, Number(ex.price), vatId
+          );
+          items.push({
+            product_id: exProductId,
+            item_name: `Extra: ${ex.name}`,
+            item_price: Number(ex.price),
+            item_quantity: ex.quantity || it.quantity,
+            ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+          });
+        }
+      }
     })
   );
 
+  // Split customerName into first/last for the address fields
+  const nameParts = (order.customerName || '').trim().split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || firstName;
+
+  const invoiceAddress = {
+    invoiceAddress_firstname: firstName,
+    invoiceAddress_lastname: lastName,
+    invoiceAddress_street: order.street || '',
+    invoiceAddress_zip: order.postalCode || '',
+    invoiceAddress_city: order.city || '',
+    invoiceAddress_country: 'AT',
+    ...(order.customerEmail ? { invoiceAddress_email: order.customerEmail } : {}),
+    ...(order.customerPhone ? { invoiceAddress_phone: order.customerPhone } : {}),
+  };
+
+  // Build notes line: order notes + payment info
+  const notesParts = [];
+  if (order.notes) notesParts.push(`Hinweis: ${order.notes}`);
+  notesParts.push(`Zahlung: ${order.paymentMethod}`);
+  if (order.paypalOrderId) notesParts.push(`PayPal-ID: ${order.paypalOrderId}`);
+
+  // PayPal orders are already captured — mark the invoice as paid immediately
+  const isPaid = order.paymentMethod === 'PAYPAL';
+
   return {
     items,
+    invoiceAddress,
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
-    invoice_text:
-      `Delivery: ${order.customerName} | ${order.street}, ${order.postalCode} ${order.city} | ${order.customerPhone}`,
+    invoice_text: notesParts.join(' | '),
+    invoice_isPaid: isPaid,
   };
 }
 
