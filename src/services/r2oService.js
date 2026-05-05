@@ -268,42 +268,42 @@ async function buildInvoicePayload(order) {
   ]);
 
   const items = [];
-  await Promise.all(
-    order.items.map(async (it) => {
-      const productId =
-        it.menuItem?.r2oProductId ||
-        (await resolveProductId(it.name, Number(it.price), vatId));
+  // Process items sequentially (not concurrently) so the array order is
+  // deterministic — Kundeninfo is pushed after this loop and must be last.
+  for (const it of order.items) {
+    const productId =
+      it.menuItem?.r2oProductId ||
+      (await resolveProductId(it.name, Number(it.price), vatId));
 
-      // Build item name — append note if present
-      const itemName = it.notes
-        ? `${it.name} (${it.notes})`
-        : it.name;
+    // Build item name — append note if present
+    const itemName = it.notes
+      ? `${it.name} (${it.notes})`
+      : it.name;
 
-      items.push({
-        product_id: productId,
-        item_name: itemName,
-        item_price: Number(it.price),
-        item_quantity: it.quantity,
-        ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-      });
+    items.push({
+      product_id: productId,
+      item_name: itemName,
+      item_price: Number(it.price),
+      item_quantity: it.quantity,
+      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+    });
 
-      // Add each extra as its own line item
-      if (it.extras && it.extras.length) {
-        for (const ex of it.extras) {
-          const exProductId = await resolveProductId(
-            `Extra: ${ex.name}`, Number(ex.price), vatId
-          );
-          items.push({
-            product_id: exProductId,
-            item_name: `Extra: ${ex.name}`,
-            item_price: Number(ex.price),
-            item_quantity: ex.quantity || it.quantity,
-            ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-          });
-        }
+    // Add each extra as its own line item
+    if (it.extras && it.extras.length) {
+      for (const ex of it.extras) {
+        const exProductId = await resolveProductId(
+          `Extra: ${ex.name}`, Number(ex.price), vatId
+        );
+        items.push({
+          product_id: exProductId,
+          item_name: `Extra: ${ex.name}`,
+          item_price: Number(ex.price),
+          item_quantity: ex.quantity || it.quantity,
+          ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+        });
       }
-    })
-  );
+    }
+  }
 
   // Split customerName into first / last name
   const nameParts = (order.customerName || '').trim().split(/\s+/);
@@ -345,12 +345,16 @@ async function buildInvoicePayload(order) {
   if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
 
   if (receiptInfoLines.length > 0) {
-    const infoProductId = await resolveProductId('Kundeninfo', 0, vatId);
-    items.unshift({
+    // r2o sorts receipt line items alphabetically by item_name, ignoring
+    // submission order. Prefix with "zzz " so this entry always renders last
+    // (after any food item starting A–Z, including "ZEPPOLINE").
+    const infoProductId = await resolveProductId('zzz_Kundeninfo', 0, vatId);
+    items.push({
       product_id: infoProductId,
-      item_name: `Kundeninfo\n${receiptInfoLines.join('\n')}`,
+      item_name: `zzz Kundeninfo\n${receiptInfoLines.join('\n')}`,
       item_price: 0,
       item_quantity: 1,
+      item_sort: 9999,
       ...(vatId !== undefined ? { item_vatId: vatId } : {}),
     });
   }
