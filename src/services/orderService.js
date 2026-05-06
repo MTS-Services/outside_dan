@@ -10,6 +10,14 @@ const config = require('../config');
 const DELIVERY_FEE = 2.5;
 const TAX_RATE = 0;
 
+async function resolveDeliveryFee(postalCode) {
+  if (!postalCode) return DELIVERY_FEE;
+  const zone = await prisma.deliveryZone.findFirst({
+    where: { postalCode: postalCode.trim(), isActive: true },
+  });
+  return zone ? Number(zone.deliveryFee) : DELIVERY_FEE;
+}
+
 function round2(n) { return Math.round(n * 100) / 100; }
 
 const ORDER_INCLUDE = {
@@ -79,8 +87,33 @@ async function _resolveCart(items) {
 async function createOrder(input, userId = null) {
   const { orderItemsCreate, subtotal } = await _resolveCart(input.items);
 
+  const deliveryFee = await resolveDeliveryFee(input.postalCode);
+
+  // Coupon
+  let discount = 0;
+  let couponId = null;
+  let couponCode = null;
+  if (input.couponCode) {
+    const coupon = await prisma.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } });
+    if (coupon && coupon.isActive) {
+      const now = new Date();
+      const expired = (coupon.validFrom && now < coupon.validFrom) || (coupon.validUntil && now > coupon.validUntil);
+      const exhausted = coupon.usageLimit !== null && coupon.usageCount >= coupon.usageLimit;
+      const belowMin = subtotal < Number(coupon.minOrder);
+      if (!expired && !exhausted && !belowMin) {
+        if (coupon.type === 'FIXED') {
+          discount = Math.min(Number(coupon.value), subtotal);
+        } else {
+          discount = Math.round((subtotal * Number(coupon.value) / 100) * 100) / 100;
+        }
+        couponId = coupon.id;
+        couponCode = coupon.code;
+      }
+    }
+  }
+
   const tax = round2(subtotal * TAX_RATE);
-  const total = round2(subtotal + DELIVERY_FEE + tax);
+  const total = round2(subtotal + deliveryFee + tax - discount);
   const orderNumber = await generateOrderNumber();
   const isPaypal = input.paymentMethod === 'PAYPAL';
 
@@ -102,8 +135,11 @@ async function createOrder(input, userId = null) {
       postalCode: input.postalCode,
       notes: input.notes || null,
       subtotal,
-      deliveryFee: DELIVERY_FEE,
+      deliveryFee,
       tax,
+      discount: discount > 0 ? discount : null,
+      couponId: couponId || null,
+      couponCode: couponCode || null,
       total,
       items: { create: orderItemsCreate },
     },
@@ -112,16 +148,23 @@ async function createOrder(input, userId = null) {
 
   try { getIO().to('kitchen').emit('order:new', order); } catch { /* noop */ }
 
+  // Increment coupon usage
+  if (couponId) {
+    prisma.coupon.update({ where: { id: couponId }, data: { usageCount: { increment: 1 } } }).catch(() => {});
+  }
+
   // Push to all admins/subadmins
   push.pushToStaff({
     title: `Neue Bestellung ${order.orderNumber}`,
     body: `${order.customerName} • € ${Number(order.total).toFixed(2)} • ${order.items.length} Artikel`,
+    icon: '/uploads/logo.png',
     url: '/admin/orders',
     tag: `order-${order.id}`,
   }).catch(() => {});
   push.pushToKitchen({
     title: `Neue Bestellung ${order.orderNumber}`,
     body: `${order.customerName} • € ${Number(order.total).toFixed(2)}`,
+    icon: '/uploads/logo.png',
     url: '/admin/orders',
     tag: `order-${order.id}`,
   }).catch(() => {});
@@ -175,12 +218,16 @@ async function getOrder(id) {
   return order;
 }
 
-function emitStatus(order) {
+function emitStatus(order, extra = {}) {
   try {
     const io = getIO();
     io.to('kitchen').emit('order:updated', order);
     io.to(`order:${order.id}`).emit('order:status', {
-      id: order.id, status: order.status, orderNumber: order.orderNumber,
+      id: order.id,
+      status: order.status,
+      orderNumber: order.orderNumber,
+      acceptanceNote: extra.acceptanceNote || order.acceptanceNote,
+      declinedReason: extra.reason || order.declinedReason,
     });
   } catch { /* ignore */ }
 }
@@ -200,6 +247,7 @@ function pushStatusToCustomer(order, extra = {}) {
   push.pushToUser(order.userId, {
     title: tpl.title,
     body: body,
+    icon: '/uploads/logo.png',
     url: '/my-orders',
     tag: `status-${order.id}`,
   }).catch((err) => console.warn('[push] pushStatusToCustomer failed:', err.message));
@@ -234,7 +282,7 @@ async function acceptOrder(id, { acceptanceNote, userId } = {}) {
   });
 
   printer.printOrderTicket(updated).catch(() => {});
-  emitStatus(updated);
+  emitStatus(updated, { acceptanceNote });
   pushStatusToCustomer(updated, { acceptanceNote });
   email.sendOrderAccepted(updated).catch(() => {});
   return updated;
@@ -325,6 +373,7 @@ async function editOrder(id, input, { userId, role }) {
     push.pushToStaff({
       title: `Bestellung erneut eingereicht: ${updated.orderNumber}`,
       body: `${updated.customerName} • € ${Number(updated.total).toFixed(2)}`,
+      icon: '/uploads/logo.png',
       url: '/admin/orders', tag: `order-${updated.id}`,
     }).catch(() => {});
   } else {

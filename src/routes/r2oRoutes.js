@@ -11,6 +11,7 @@ const router = require('express').Router();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { authRequired, requireAdmin } = require('../middlewares/auth');
 
 const ENV_PATH = path.resolve(__dirname, '../../.env');
 const R2O_BASE = process.env.R2O_BASE_URL || 'https://api.ready2order.com/v1';
@@ -132,6 +133,25 @@ router.get('/products', async (req, res) => {
   } catch (err) {
     const detail = err.response?.data || err.message;
     return res.status(502).json({ error: 'Failed to fetch products', detail });
+  }
+});
+
+// ─── GET /api/r2o/vat-rates ───────────────────────────────────────────────────
+// Returns VAT rates from the linked r2o account (admin only).
+router.get('/vat-rates', [authRequired, requireAdmin], async (req, res) => {
+  const apiKey = process.env.R2O_API_KEY;
+  if (!apiKey || apiKey === 'your-ready2order-account-token') {
+    return res.status(503).json({ error: 'ready2order not configured' });
+  }
+  try {
+    const { data } = await axios.get(`${R2O_BASE}/vat-rates`, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+      timeout: 10000,
+    });
+    return res.json(Array.isArray(data) ? data : []);
+  } catch (err) {
+    const detail = err.response?.data || err.message;
+    return res.status(502).json({ error: 'VAT-Raten konnten nicht geladen werden', detail });
   }
 });
 

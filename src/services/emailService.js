@@ -4,6 +4,18 @@
  */
 const nodemailer = require('nodemailer');
 const config = require('../config');
+const prisma = require('../config/prisma');
+
+async function loadSettings() {
+  try {
+    const rows = await prisma.siteSetting.findMany({
+      where: { key: { in: ['restaurant_address', 'restaurant_phone', 'restaurant_name'] } },
+    });
+    const out = {};
+    for (const r of rows) out[r.key] = r.value;
+    return out;
+  } catch { return {}; }
+}
 
 let transporter = null;
 function getTransporter() {
@@ -49,8 +61,12 @@ async function send({ to, subject, html, text }) {
 
 function fmt(n) { return Number(n).toFixed(2); }
 
-function shellHTML({ title, preheader, content }) {
-  const name = config.restaurant.name || 'Tarantella';
+function shellHTML({ title, preheader, content, settings = {} }) {
+  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
+  const address = settings.restaurant_address || config.restaurant.address || '';
+  const phone = settings.restaurant_phone || config.restaurant.phone || '';
+  const logoUrl = `${config.apiUrl}/uploads/logo.png`;
+  const footer = [name, address, phone].filter(Boolean).join(' · ');
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#050505;font-family:Inter,Arial,sans-serif;color:#fff;">
@@ -58,14 +74,14 @@ function shellHTML({ title, preheader, content }) {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:32px 16px;">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;">
-      <tr><td align="center" style="padding:20px 28px;background:#000;border-bottom:3px solid #D9AF47;">
-        <span style="font-family:'Bebas Neue',Impact,sans-serif;font-size:28px;letter-spacing:3px;color:#D9AF47;">${name}</span>
+      <tr><td align="center" style="padding:16px 28px;background:#000;border-bottom:3px solid #D9AF47;">
+        <img src="${logoUrl}" alt="${name}" style="height:52px;width:auto;display:block;margin:0 auto;" />
       </td></tr>
       <tr><td style="padding:28px;color:#fff;line-height:1.6;font-size:15px;">
         ${content}
       </td></tr>
       <tr><td style="padding:18px 28px;border-top:1px solid rgba(255,255,255,0.05);font-size:12px;color:rgba(255,255,255,0.4);">
-        ${name} · ${config.restaurant.address || 'Wien, Österreich'} · ${config.restaurant.phone || ''}
+        ${footer}
       </td></tr>
     </table>
   </td></tr>
@@ -93,7 +109,8 @@ function itemsTable(order) {
   </table>`;
 }
 
-function orderAcceptedHTML(order) {
+async function orderAcceptedHTML(order) {
+  const settings = await loadSettings();
   const note = order.acceptanceNote
     ? `<div style="margin:18px 0;padding:14px 16px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.3);border-radius:10px;color:#6ee7b7;">
         <strong>Hinweis vom Koch:</strong> ${order.acceptanceNote}</div>`
@@ -113,10 +130,12 @@ function orderAcceptedHTML(order) {
         <div><strong>Zahlung:</strong> ${prettyPayment(order.paymentMethod)} · ${order.paymentStatus === 'PAID' ? 'bezahlt' : 'ausstehend'}</div>
       </div>
       <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Vielen Dank — wir geben unser Bestes!</p>`,
+    settings,
   });
 }
 
-function orderDeclinedHTML(order) {
+async function orderDeclinedHTML(order) {
+  const settings = await loadSettings();
   return shellHTML({
     title: 'Bestellung abgelehnt',
     preheader: `Bestellung ${order.orderNumber} abgelehnt`,
@@ -126,7 +145,8 @@ function orderDeclinedHTML(order) {
       <p style="color:rgba(255,255,255,0.7);margin:0 0 14px;">Leider mussten wir Ihre Bestellung <strong>${order.orderNumber}</strong> ablehnen.</p>
       ${order.declinedReason ? `<div style="margin:14px 0;padding:14px 16px;background:rgba(205,33,42,0.10);border:1px solid rgba(205,33,42,0.3);border-radius:10px;color:#fca5a5;"><strong>Grund:</strong> ${order.declinedReason}</div>` : ''}
       <p style="color:rgba(255,255,255,0.7);">Sie können Ihre Bestellung in Ihrem Konto bearbeiten und erneut absenden.</p>
-      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Bei Fragen erreichen Sie uns unter ${config.restaurant.phone || ''}.</p>`,
+      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Bei Fragen erreichen Sie uns unter ${settings.restaurant_phone || config.restaurant.phone || ''}.</p>`,
+    settings,
   });
 }
 
@@ -144,7 +164,7 @@ async function sendOrderAccepted(order) {
   return send({
     to: order.customerEmail,
     subject: `Bestellung ${order.orderNumber} angenommen`,
-    html: orderAcceptedHTML(order),
+    html: await orderAcceptedHTML(order),
   });
 }
 
@@ -153,11 +173,13 @@ async function sendOrderDeclined(order) {
   return send({
     to: order.customerEmail,
     subject: `Bestellung ${order.orderNumber} abgelehnt`,
-    html: orderDeclinedHTML(order),
+    html: await orderDeclinedHTML(order),
   });
 }
 
-function newOrderAdminHTML(order) {
+async function newOrderAdminHTML(order) {
+  const settings = await loadSettings();
+  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
   return shellHTML({
     title: 'Neue Bestellung eingegangen',
     preheader: `Neue Bestellung ${order.orderNumber} von ${order.customerName}`,
@@ -176,7 +198,8 @@ function newOrderAdminHTML(order) {
       <div style="margin-top:20px;">
         <a href="${config.clientUrl}/admin/orders" style="display:inline-block;padding:12px 28px;background:#D9AF47;color:#000;font-weight:700;border-radius:8px;text-decoration:none;font-size:15px;">Bestellung öffnen</a>
       </div>
-      <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:18px;">Diese E-Mail wurde automatisch von ${config.restaurant.name || 'Tarantella'} gesendet.</p>`,
+      <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:18px;">Diese E-Mail wurde automatisch von ${name} gesendet.</p>`,
+    settings,
   });
 }
 
@@ -186,11 +209,12 @@ async function sendNewOrderToAdmin(order, adminEmails) {
   return send({
     to,
     subject: `Neue Bestellung ${order.orderNumber} – ${order.customerName}`,
-    html: newOrderAdminHTML(order),
+    html: await newOrderAdminHTML(order),
   });
 }
 
 async function sendTestEmailToAdmin(adminEmail) {
+  const settings = await loadSettings();
   return send({
     to: adminEmail,
     subject: 'Test-E-Mail',
@@ -201,6 +225,7 @@ async function sendTestEmailToAdmin(adminEmail) {
         <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:36px;letter-spacing:2px;margin:0 0 12px;color:#D9AF47;">TEST-E-MAIL</h1>
         <p style="color:rgba(255,255,255,0.8);">E-Mail-Benachrichtigungen sind korrekt eingerichtet.</p>
         <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;">Du erhältst ab jetzt eine E-Mail für jede neue Bestellung.</p>`,
+      settings,
     }),
   });
 }

@@ -89,6 +89,7 @@ const menuItem = Joi.object({
   showInSlider: Joi.boolean().default(false),
   sliderSortOrder: Joi.number().integer().default(0),
   r2oProductId: Joi.string().allow('', null),
+  vatId: Joi.string().allow('', null),
   categoryId: Joi.string().required(),
   tagIds: Joi.array().items(Joi.string()).default([]),
   extraIds: Joi.array().items(Joi.string()).default([]),
@@ -112,6 +113,7 @@ const orderCreate = Joi.object({
   paymentMethod: Joi.string().valid('CASH', 'CARD_ON_DELIVERY', 'PAYPAL').default('CASH'),
   paypalOrderId: Joi.string().allow('', null),
   paypalCaptureId: Joi.string().allow('', null),
+  couponCode: Joi.string().max(50).allow('', null),
   items: Joi.array().items(orderItemSchema).min(1).required(),
 });
 
@@ -145,6 +147,25 @@ const paypalCreate = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
 });
 
+const deliveryZone = Joi.object({
+  postalCode: Joi.string().min(2).max(20).required(),
+  label: Joi.string().max(80).allow('', null),
+  deliveryFee: Joi.number().min(0).precision(2).required(),
+  minimumOrder: Joi.number().min(0).precision(2).default(0),
+  isActive: Joi.boolean().default(true),
+});
+
+const coupon = Joi.object({
+  code: Joi.string().min(2).max(30).required(),
+  type: Joi.string().valid('FIXED', 'PERCENT').default('FIXED'),
+  value: Joi.number().min(0).precision(2).required(),
+  minOrder: Joi.number().min(0).precision(2).default(0),
+  validFrom: Joi.date().iso().allow(null),
+  validUntil: Joi.date().iso().allow(null),
+  isActive: Joi.boolean().default(true),
+  usageLimit: Joi.number().integer().min(1).allow(null),
+});
+
 module.exports = {
   login, register,
   profileUpdate, passwordChange, notifPrefs,
@@ -153,4 +174,5 @@ module.exports = {
   orderCreate, orderEdit, orderStatus, orderAccept, orderDecline,
   paypalCreate,
   forgotPassword, resetPassword,
+  deliveryZone, coupon,
 };

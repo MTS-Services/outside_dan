@@ -36,6 +36,11 @@ enum PaymentStatus {
   FAILED
 }
 
+enum CouponType {
+  FIXED
+  PERCENT
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -58,15 +63,16 @@ model User {
 }
 
 model PushSubscription {
-  id        String   @id @default(uuid())
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   // For admin/kitchen subscriptions, userId is set; for guest, null
-  isKitchen Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isKitchen  Boolean  @default(false)
+  deviceName String?
+  createdAt  DateTime @default(now())
 }
 
 model Category {
@@ -134,6 +140,7 @@ model MenuItem {
   showInSlider Boolean   @default(false)
   sliderSortOrder Int    @default(0)
   r2oProductId String?
+  vatId        String?
   categoryId  String
   category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems  OrderItem[]
@@ -166,6 +173,12 @@ model Order {
   city          String
   postalCode    String
   notes         String?
+
+  // Coupon
+  couponId      String?
+  couponCode    String?
+  discount      Decimal?  @db.Decimal(10, 2)
+  coupon        Coupon?   @relation(fields: [couponId], references: [id])
 
   // Totals
   subtotal      Decimal       @db.Decimal(10, 2)
@@ -238,4 +251,31 @@ model SiteSetting {
   key       String   @id
   value     String   @db.Text
   updatedAt DateTime @updatedAt
+}
+
+model DeliveryZone {
+  id            String   @id @default(uuid())
+  postalCode    String   @unique
+  label         String?
+  deliveryFee   Decimal  @db.Decimal(10, 2)
+  minimumOrder  Decimal  @db.Decimal(10, 2) @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Coupon {
+  id          String     @id @default(uuid())
+  code        String     @unique
+  type        CouponType @default(FIXED)
+  value       Decimal    @db.Decimal(10, 2)
+  minOrder    Decimal    @db.Decimal(10, 2) @default(0)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  isActive    Boolean    @default(true)
+  usageLimit  Int?
+  usageCount  Int        @default(0)
+  orders      Order[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }

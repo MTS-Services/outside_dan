@@ -38,11 +38,13 @@ const _cache = {
   paymentMethods: null,
   userId: undefined,
   vatId: undefined,
+  zeroVatId: undefined,
   productGroupId: undefined,
   customerCategoryId: undefined,
   products: {}, // name -> product_id
   _usersFetched: false,
   _vatFetched: false,
+  _zeroVatFetched: false,
   _pgFetched: false,
   _ccFetched: false,
 };
@@ -99,6 +101,25 @@ async function resolveDefaultVatId() {
   _cache.vatId = rates.length ? rates[0].id : undefined;
   _cache._vatFetched = true;
   return _cache.vatId;
+}
+
+/** Find the 0% VAT rate ID — used for delivery (service, not food). */
+async function resolveZeroVatId() {
+  if (_cache._zeroVatFetched) return _cache.zeroVatId;
+  try {
+    const { data } = await client.get('/vat-rates');
+    const rates = Array.isArray(data) ? data : [];
+    // Look for a rate whose value is 0
+    const zero = rates.find((r) => {
+      const v = r.vat_value ?? r.value ?? r.vat_percentage ?? r.rate;
+      return Number(v) === 0;
+    });
+    _cache.zeroVatId = zero ? (zero.id ?? zero.vat_id) : undefined;
+  } catch {
+    _cache.zeroVatId = undefined;
+  }
+  _cache._zeroVatFetched = true;
+  return _cache.zeroVatId;
 }
 
 async function resolveDefaultProductGroupId() {
@@ -260,20 +281,23 @@ async function resolveCustomerId(order) {
 
 /** Build invoice payload from an internal order. */
 async function buildInvoicePayload(order) {
-  const [paymentMethodId, userId, vatId, customerId] = await Promise.all([
+  const [paymentMethodId, userId, vatId, customerId, zeroVatId] = await Promise.all([
     resolvePaymentMethodId(order.paymentMethod),
     resolveUserId(),
     resolveDefaultVatId(),
     resolveCustomerId(order),
+    resolveZeroVatId(),
   ]);
 
   const items = [];
   // Process items sequentially (not concurrently) so the array order is
   // deterministic — Kundeninfo is pushed after this loop and must be last.
   for (const it of order.items) {
+    // Use per-item vatId from MenuItem if set, otherwise fall back to account default
+    const itemVatId = it.menuItem?.vatId || vatId;
     const productId =
       it.menuItem?.r2oProductId ||
-      (await resolveProductId(it.name, Number(it.price), vatId));
+      (await resolveProductId(it.name, Number(it.price), itemVatId));
 
     // Build item name — append note if present
     const itemName = it.notes
@@ -285,24 +309,37 @@ async function buildInvoicePayload(order) {
       item_name: itemName,
       item_price: Number(it.price),
       item_quantity: it.quantity,
-      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+      ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
     });
 
     // Add each extra as its own line item
     if (it.extras && it.extras.length) {
       for (const ex of it.extras) {
         const exProductId = await resolveProductId(
-          `Extra: ${ex.name}`, Number(ex.price), vatId
+          `Extra: ${ex.name}`, Number(ex.price), itemVatId
         );
         items.push({
           product_id: exProductId,
           item_name: `Extra: ${ex.name}`,
           item_price: Number(ex.price),
           item_quantity: ex.quantity || it.quantity,
-          ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+          ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
         });
       }
     }
+  }
+
+  // Add delivery as a line item with 0% VAT (it's a service, not food)
+  const deliveryFee = Number(order.deliveryFee || 0);
+  if (deliveryFee > 0) {
+    const deliveryProductId = await resolveProductId('Lieferung', deliveryFee, zeroVatId);
+    items.push({
+      product_id: deliveryProductId,
+      item_name: 'Lieferung',
+      item_price: deliveryFee,
+      item_quantity: 1,
+      ...(zeroVatId !== undefined ? { item_vatId: zeroVatId } : {}),
+    });
   }
 
   // Split customerName into first / last name

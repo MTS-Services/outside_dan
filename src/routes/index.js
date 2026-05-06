@@ -10,6 +10,8 @@ router.use('/paypal', require('./paypalRoutes'));
 router.use('/gallery', require('./galleryRoutes'));
 router.use('/site-images', require('./siteImageRoutes'));
 router.use('/site-settings', require('./siteSettingRoutes'));
+router.use('/coupons', require('./couponRoutes'));
+router.use('/delivery-zones', require('./deliveryZoneRoutes'));
 
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 

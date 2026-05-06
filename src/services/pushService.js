@@ -23,14 +23,14 @@ function getPublicKey() {
   return config.vapid.publicKey;
 }
 
-async function saveSubscription({ subscription, userId = null, isKitchen = false }) {
+async function saveSubscription({ subscription, userId = null, isKitchen = false, deviceName = null }) {
   if (!subscription?.endpoint) throw new Error('Invalid subscription');
   const { endpoint, keys } = subscription;
   // Upsert by endpoint
   return prisma.pushSubscription.upsert({
     where: { endpoint },
-    update: { p256dh: keys.p256dh, auth: keys.auth, userId, isKitchen },
-    create: { endpoint, p256dh: keys.p256dh, auth: keys.auth, userId, isKitchen },
+    update: { p256dh: keys.p256dh, auth: keys.auth, userId, isKitchen, ...(deviceName ? { deviceName } : {}) },
+    create: { endpoint, p256dh: keys.p256dh, auth: keys.auth, userId, isKitchen, deviceName },
   });
 }
 
