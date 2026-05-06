@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
+import { subscribeToPush, isPushSubscribed } from '../../api/push';
+import PushPromptModal from '../../components/PushPromptModal';
 
 const NAV = [
   { to: '/admin',                end: true, label: 'Übersicht',         icon: <Ic d="M3 13l9-9 9 9M5 11v9h14v-9" /> },
@@ -8,6 +10,8 @@ const NAV = [
   { to: '/admin/menu',                      label: 'Speisekarte',       icon: <Ic d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z" />, role: ['ADMIN'] },
   { to: '/admin/home-categories',           label: 'Startseite',        icon: <Ic d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" />, role: ['ADMIN'] },
   { to: '/admin/gallery',                   label: 'Galerie',           icon: <Ic d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />, role: ['ADMIN'] },
+  { to: '/admin/coupons',                   label: 'Gutscheine',        icon: <Ic d="M7 7h.01M17 17h.01M5 20l14-14M6.5 4A2.5 2.5 0 0 1 9 6.5V9H6.5A2.5 2.5 0 0 1 4 6.5 2.5 2.5 0 0 1 6.5 4zM17.5 15a2.5 2.5 0 0 1 2.5 2.5A2.5 2.5 0 0 1 17.5 20 2.5 2.5 0 0 1 15 17.5v-2.5h2.5z" />, role: ['ADMIN'] },
+  { to: '/admin/delivery-zones',            label: 'Lieferzonen',       icon: <Ic d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-1.447-.894L15 9m0 8V9m0 0L9 7" />, role: ['ADMIN'] },
   { to: '/admin/subadmins',                 label: 'Subadmins',         icon: <Ic d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />, role: ['ADMIN'] },
   { to: '/admin/customers',                 label: 'Kunden',            icon: <Ic d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />, role: ['ADMIN'] },
   { to: '/admin/notifications',             label: 'Benachrichtigungen',icon: <Ic d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /> },
@@ -28,6 +32,21 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    // Ask staff to enable push notifications if they haven't yet
+    const checkPush = async () => {
+      if (typeof Notification === 'undefined') return;
+      if (Notification.permission !== 'default') return;
+      try {
+        const subscribed = await isPushSubscribed();
+        if (!subscribed) setShowPushPrompt(true);
+      } catch { /* noop */ }
+    };
+    checkPush();
+  }, [token]);
 
   if (!token) return <Navigate to={`/login?next=${encodeURIComponent(pathname)}`} replace />;
   if (user && !['ADMIN', 'SUBADMIN', 'STAFF'].includes(user.role)) {
@@ -44,6 +63,15 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-[#0d0f14]">
+      {showPushPrompt && (
+        <PushPromptModal
+          onClose={() => setShowPushPrompt(false)}
+          onAccept={async () => {
+            try { await subscribeToPush({ kitchen: true }); } catch { /* noop */ }
+            setShowPushPrompt(false);
+          }}
+        />
+      )}
       {/* Mobile overlay backdrop */}
       {sidebarOpen && (
         <div

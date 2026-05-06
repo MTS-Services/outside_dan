@@ -18,6 +18,18 @@ export async function registerServiceWorker() {
   return navigator.serviceWorker.register('/sw.js');
 }
 
+function getDeviceName() {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/Firefox\//.test(ua)) return 'Firefox';
+  if (/Chrome\//.test(ua)) return 'Chrome';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return 'Browser';
+}
+
 /** Subscribe the current browser to push and send the subscription to the server. */
 export async function subscribeToPush({ kitchen = false } = {}) {
   if (!pushSupported()) throw new Error('Push not supported in this browser');
@@ -38,7 +50,7 @@ export async function subscribeToPush({ kitchen = false } = {}) {
   }
 
   const endpoint = kitchen ? '/push/subscribe-kitchen' : '/push/subscribe';
-  await api.post(endpoint, { subscription: sub.toJSON() });
+  await api.post(endpoint, { subscription: sub.toJSON(), deviceName: getDeviceName() });
   return sub;
 }
 

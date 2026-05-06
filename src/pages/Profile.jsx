@@ -10,6 +10,7 @@ import {
   pushSupported,
 } from '../api/push';
 import PhoneInput from '../components/PhoneInput';
+import PushPromptModal from '../components/PushPromptModal';
 
 /* Customer dashboard layout: sidebar tabs Profil/Bestellungen/Benachrichtigungen */
 import PasswordInput from '../components/PasswordInput';
@@ -18,6 +19,17 @@ export default function Profile() {
   const { token, user, logout, setSession } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  // Show push prompt once if this device isn't subscribed and permission is default
+  useEffect(() => {
+    if (!token) return;
+    if (!pushSupported()) return;
+    if (Notification.permission !== 'default') return;
+    isPushSubscribed().then((subscribed) => {
+      if (!subscribed) setShowPushPrompt(true);
+    });
+  }, [token]);
 
   if (!token) return <Navigate to="/login?next=/account" replace />;
   // Staff goes to /admin
@@ -30,9 +42,14 @@ export default function Profile() {
   // active tab
   const tab = loc.pathname.endsWith('/orders') ? 'orders'
     : loc.pathname.endsWith('/notifications') ? 'notifications'
-    : 'profile';
+    : loc.pathname.endsWith('/profile') ? 'profile'
+    : 'orders';
 
   return (
+    <>
+      {showPushPrompt && (
+        <PushPromptModal onDone={() => setShowPushPrompt(false)} />
+      )}
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
@@ -44,7 +61,7 @@ export default function Profile() {
 
       <div className="grid md:grid-cols-[220px_1fr] gap-6 md:gap-8">
         <aside className="flex md:flex-col gap-1 overflow-x-auto pb-1 md:pb-0 border-b border-white/5 md:border-b-0">
-          <TabLink to="/account" active={tab === 'profile'}>Profil</TabLink>
+          <TabLink to="/account/profile" active={tab === 'profile'}>Profil</TabLink>
           <TabLink to="/account/orders" active={tab === 'orders'}>Meine Bestellungen</TabLink>
           <TabLink to="/account/notifications" active={tab === 'notifications'}>Benachrichtigungen</TabLink>
         </aside>
@@ -55,6 +72,7 @@ export default function Profile() {
         </main>
       </div>
     </div>
+    </>
   );
 }
 
@@ -154,65 +172,155 @@ function ProfileTab({ user, setSession }) {
 }
 
 function NotificationsTab({ user, setSession }) {
-  const [pushOn, setPushOn] = useState(false);
-  const [orderNotifs, setOrderNotifs] = useState(user?.orderNotificationsEnabled !== false);
-  const [busy, setBusy] = useState(false);
+  const [emailOn, setEmailOn] = useState(user?.emailNotificationsEnabled ?? false);
+  const [savingEmail, setSavingEmail] = useState(false);
 
-  useEffect(() => { isPushSubscribed().then(setPushOn); }, []);
+  // Push devices list
+  const [devices, setDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [subscribing, setSubscribing] = useState(false);
+  const [currentEndpoint, setCurrentEndpoint] = useState(null);
 
-  async function togglePush() {
-    setBusy(true);
+  // Load devices + current device endpoint
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingDevices(true);
+      try {
+        const [{ data }, sub] = await Promise.all([
+          api.get('/push/subscriptions'),
+          isPushSubscribed().then(async (yes) => {
+            if (!yes) return null;
+            const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+            const s = await reg?.pushManager.getSubscription();
+            return s?.endpoint || null;
+          }),
+        ]);
+        if (!cancelled) {
+          setDevices(data);
+          setCurrentEndpoint(sub);
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setLoadingDevices(false); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function toggleEmailNotifs(next) {
+    setSavingEmail(true);
     try {
-      if (pushOn) {
-        await unsubscribeFromPush();
-        setPushOn(false);
-        await api.put('/auth/me/notifications', { pushEnabled: false, orderNotificationsEnabled: orderNotifs });
-        toast('Push deaktiviert');
-      } else {
-        await subscribeToPush();
-        setPushOn(true);
-        await api.put('/auth/me/notifications', { pushEnabled: true, orderNotificationsEnabled: orderNotifs });
-        toast.success('Push aktiviert');
-      }
-    } catch (e) {
-      toast.error(e.message || 'Aktion fehlgeschlagen');
-    } finally { setBusy(false); }
-  }
-
-  async function saveNotifs(next) {
-    setOrderNotifs(next);
-    try {
-      const { data } = await api.put('/auth/me/notifications', {
-        pushEnabled: pushOn,
-        orderNotificationsEnabled: next,
-      });
-      setSession({ token: localStorage.getItem('token'), user: data });
+      const { data } = await api.put('/auth/me/notifications', { emailNotificationsEnabled: next });
+      setEmailOn(next);
+      setSession({ token: localStorage.getItem('token'), user: data.user ?? data });
       toast.success('Einstellungen gespeichert');
     } catch (err) {
       toast.error(err.displayMessage || 'Speichern fehlgeschlagen');
+    } finally { setSavingEmail(false); }
+  }
+
+  async function addDevice() {
+    setSubscribing(true);
+    try {
+      await subscribeToPush();
+      // Refresh device list + endpoint
+      const [{ data }, reg] = await Promise.all([
+        api.get('/push/subscriptions'),
+        navigator.serviceWorker.getRegistration('/sw.js'),
+      ]);
+      const sub = await reg?.pushManager.getSubscription();
+      setDevices(data);
+      setCurrentEndpoint(sub?.endpoint || null);
+      toast.success('Gerät hinzugefügt');
+    } catch (e) {
+      toast.error(e.message || 'Fehler beim Aktivieren');
+    } finally { setSubscribing(false); }
+  }
+
+  async function removeDevice(id, endpoint) {
+    try {
+      await api.delete(`/push/subscriptions/${id}`);
+      // If the removed device is the current one, also unsubscribe locally
+      if (endpoint === currentEndpoint) {
+        await unsubscribeFromPush();
+        setCurrentEndpoint(null);
+      }
+      setDevices((d) => d.filter((x) => x.id !== id));
+      toast('Gerät entfernt');
+    } catch (err) {
+      toast.error(err.displayMessage || 'Fehler beim Entfernen');
     }
   }
 
+  const thisDeviceSubscribed = !!currentEndpoint;
+
   return (
-    <div className="card p-6 space-y-5">
-      <h2 className="text-2xl">Benachrichtigungen</h2>
-      {pushSupported() ? (
+    <div className="space-y-6">
+      {/* Email notifications */}
+      <div className="card p-6 space-y-4">
+        <h2 className="text-2xl">Benachrichtigungen</h2>
         <Toggle
-          label="Push-Benachrichtigungen am Gerät"
-          desc="Erhalte Status-Updates zu deinen Bestellungen direkt im Browser."
-          on={pushOn}
-          onChange={togglePush}
-          disabled={busy}
+          label="E-Mail-Benachrichtigungen"
+          desc="Erhalte Bestellungs-Updates per E-Mail."
+          on={emailOn}
+          onChange={() => toggleEmailNotifs(!emailOn)}
+          disabled={savingEmail}
         />
+      </div>
+
+      {/* Push devices */}
+      {pushSupported() ? (
+        <div className="card p-6 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="text-2xl">Push-Geräte</h2>
+            {!thisDeviceSubscribed && (
+              <button
+                onClick={addDevice}
+                disabled={subscribing}
+                className="btn-primary text-sm py-2 px-4"
+              >
+                {subscribing ? 'Wird aktiviert…' : '+ Dieses Gerät hinzufügen'}
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-white/50">
+            Dieses Gerät empfängt Push-Benachrichtigungen bei Bestellungs-Updates.
+          </p>
+          {loadingDevices ? (
+            <p className="text-sm text-white/40">Lädt…</p>
+          ) : devices.length === 0 ? (
+            <p className="text-sm text-white/40">Keine Geräte registriert.</p>
+          ) : (
+            <ul className="space-y-2">
+              {devices.map((d) => {
+                const isCurrent = d.endpoint === currentEndpoint;
+                return (
+                  <li key={d.id} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3 bg-white/5">
+                    <div>
+                      <span className="font-semibold text-sm">{d.deviceName || 'Browser'}</span>
+                      {isCurrent && <span className="ml-2 text-xs text-brand-400 font-semibold">(dieses Gerät)</span>}
+                      <div className="text-xs text-white/40 mt-0.5">
+                        Hinzugefügt am {new Date(d.createdAt).toLocaleDateString('de-AT')}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeDevice(d.id, d.endpoint)}
+                      className="text-white/40 hover:text-red-400 transition text-sm"
+                      title="Gerät entfernen"
+                    >
+                      Entfernen
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       ) : (
-        <p className="text-white/50 text-sm">Push wird in diesem Browser nicht unterstützt.</p>
+        <div className="card p-6">
+          <p className="text-white/50 text-sm">Push wird in diesem Browser nicht unterstützt.</p>
+        </div>
       )}
-      <Toggle
-        label="Bestellbenachrichtigungen"
-        desc="Erlaube uns, dich bei Bestellungs-Updates zu benachrichtigen."
-        on={orderNotifs}
-        onChange={() => saveNotifs(!orderNotifs)}
-      />
     </div>
   );
 }

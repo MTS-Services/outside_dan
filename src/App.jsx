@@ -28,6 +28,8 @@ import AdminCustomerDetail from './pages/admin/AdminCustomerDetail';
 import AdminNotifications from './pages/admin/AdminNotifications';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminProfile from './pages/admin/AdminProfile';
+import AdminDeliveryZones from './pages/admin/AdminDeliveryZones';
+import AdminCoupons from './pages/admin/AdminCoupons';
 
 export default function App() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
 
         {/* Customer dashboard */}
         <Route path="/account" element={<Profile />}>
+          <Route index element={<Navigate to="orders" replace />} />
+          <Route path="profile" element={null} />
           <Route path="orders" element={<MyOrdersPanel />} />
           <Route path="notifications" element={null} />
         </Route>
@@ -68,6 +72,8 @@ export default function App() {
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="profile" element={<AdminProfile />} />
+        <Route path="delivery-zones" element={<AdminDeliveryZones />} />
+        <Route path="coupons" element={<AdminCoupons />} />
       </Route>
       {/* Legacy /admin/login alias → unified /login */}
       <Route path="/admin/login" element={<Navigate to="/login" replace />} />

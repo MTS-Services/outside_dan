@@ -27,6 +27,7 @@ export default function AdminOrders() {
     setNewRows({ items, total, page, search });
     if (showInitialToast && total > 0) {
       toast(`${total} neue ${total === 1 ? 'Bestellung' : 'Bestellungen'} warten!`, {
+        id: 'initial-orders-toast',
         icon: '🔔',
         style: {
           background: '#f59e0b',

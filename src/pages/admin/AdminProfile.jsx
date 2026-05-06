@@ -1,10 +1,84 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
 import { useAuth } from '../../store/auth';
 import PhoneInput from '../../components/PhoneInput';
-
 import PasswordInput from '../../components/PasswordInput';
+import { subscribeToPush } from '../../api/push';
+
+function Spin() { return <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />; }
+
+function PushDevicesSection() {
+  const [devices, setDevices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentEndpoint, setCurrentEndpoint] = useState(null);
+  const [subscribing, setSubscribing] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      // Get current subscription endpoint for "dieses Gerät" badge
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) setCurrentEndpoint(sub.endpoint);
+      }
+      const { data } = await api.get('/push/subscriptions');
+      setDevices(data);
+    } catch { /* noop */ }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function addDevice() {
+    setSubscribing(true);
+    try {
+      await subscribeToPush({ kitchen: false });
+      toast.success('Gerät registriert');
+      await load();
+    } catch { toast.error('Registrierung fehlgeschlagen'); }
+    finally { setSubscribing(false); }
+  }
+
+  async function removeDevice(id) {
+    try {
+      await api.delete(`/push/subscriptions/${id}`);
+      toast.success('Gerät entfernt');
+      setDevices((d) => d.filter((x) => x.id !== id));
+    } catch { toast.error('Fehler beim Entfernen'); }
+  }
+
+  return (
+    <div className="card p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Push-Benachrichtigungen</h2>
+        <button disabled={subscribing} onClick={addDevice} className="btn-outline text-sm">
+          {subscribing ? <Spin /> : '+ Dieses Gerät'}
+        </button>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-4"><Spin /></div>
+      ) : devices.length === 0 ? (
+        <p className="text-white/40 text-sm">Keine registrierten Geräte. Klicke auf "+ Dieses Gerät" um Push-Benachrichtigungen zu aktivieren.</p>
+      ) : (
+        <ul className="space-y-2">
+          {devices.map((d) => (
+            <li key={d.id} className="flex items-center justify-between rounded-xl bg-white/[0.04] border border-white/5 px-4 py-3">
+              <div>
+                <span className="font-medium text-sm">{d.deviceName || 'Unbekanntes Gerät'}</span>
+                {d.endpoint === currentEndpoint && (
+                  <span className="ml-2 text-xs bg-brand-500/20 text-brand-400 border border-brand-500/30 rounded-full px-2 py-0.5">Dieses Gerät</span>
+                )}
+                <div className="text-xs text-white/40 mt-0.5">{new Date(d.createdAt).toLocaleDateString('de-AT')}</div>
+              </div>
+              <button onClick={() => removeDevice(d.id)} className="text-red-400 hover:text-red-300 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-500/10">Entfernen</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function AdminProfile() {
   const { user, setSession } = useAuth();
@@ -60,6 +134,8 @@ export default function AdminProfile() {
         <label className="block"><span className="label">Neues Passwort</span><PasswordInput required minLength={6} className="input w-full" value={pwd.next} onChange={(e) => setPwd({ ...pwd, next: e.target.value })} /></label>
         <button disabled={savingPwd} className="btn-outline justify-center">{savingPwd ? 'Ändern…' : 'Passwort ändern'}</button>
       </form>
+
+      <PushDevicesSection />
     </div>
   );
 }

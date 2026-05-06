@@ -21,7 +21,10 @@ export default function OrderTracking() {
     const sock = getSocket();
     sock.emit('join:order', id);
     const handler = (data) => {
-      if (data.id === id) setOrder((o) => o ? { ...o, status: data.status, acceptanceNote: data.acceptanceNote ?? o.acceptanceNote, declinedReason: data.declinedReason ?? o.declinedReason } : o);
+      // Only match this order ID from the socket
+      if (data.id === id) {
+        setOrder((o) => o ? { ...o, status: data.status, acceptanceNote: data.acceptanceNote ?? o.acceptanceNote, declinedReason: data.declinedReason ?? o.declinedReason } : o);
+      }
     };
     sock.on('order:status', handler);
     return () => sock.off('order:status', handler);
