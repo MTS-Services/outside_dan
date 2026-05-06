@@ -6,7 +6,8 @@ import { getSocket } from '../../api/socket';
 
 const PAGE_SIZE = 8;
 const NEW_STATUSES = ['PENDING'];
-const ACCEPTED_STATUSES = ['ACCEPTED', 'DECLINED'];
+const ACCEPTED_STATUSES = ['ACCEPTED'];
+const DECLINED_STATUSES = ['DECLINED'];
 
 export default function AdminOrders() {
   const audioRef = useRef(null);
@@ -14,6 +15,7 @@ export default function AdminOrders() {
 
   const [newRows, setNewRows] = useState({ items: [], total: 0, page: 1, search: '' });
   const [accRows, setAccRows] = useState({ items: [], total: 0, page: 1, search: '' });
+  const [decRows, setDecRows] = useState({ items: [], total: 0, page: 1, search: '' });
 
   const [promptModal, setPromptModal] = useState({ open: false, title: '', defaultVal: '', onConfirm: null });
   const [viewOrder, setViewOrder] = useState(null);
@@ -44,10 +46,18 @@ export default function AdminOrders() {
     const total = data.total ?? items.length;
     setAccRows({ items, total, page, search });
   };
-
+  const fetchDec = async (page = 1, search = '') => {
+    const { data } = await api.get('/orders', {
+      params: { statusIn: DECLINED_STATUSES.join(','), page, pageSize: PAGE_SIZE, search },
+    });
+    const items = data.items || data;
+    const total = data.total ?? items.length;
+    setDecRows({ items, total, page, search });
+  };
   useEffect(() => {
     fetchNew(1, '', true);
     fetchAcc(1, '');
+    fetchDec(1, '');
     const sock = getSocket();
     sock.emit('join:kitchen');
     const onNew = (order) => {
@@ -58,6 +68,7 @@ export default function AdminOrders() {
     const onUpdated = () => {
       fetchNew(newRows.page, newRows.search);
       fetchAcc(accRows.page, accRows.search);
+      fetchDec(decRows.page, decRows.search);
     };
     sock.on('order:new', onNew);
     sock.on('order:updated', onUpdated);
@@ -83,6 +94,7 @@ export default function AdminOrders() {
     toast.success('Bestellung akzeptiert');
     fetchNew(newRows.page, newRows.search);
     fetchAcc(1, accRows.search);
+    fetchDec(1, decRows.search);
   });
   const decline = (o) => call(o.id, async () => {
     const reason = await openPrompt('Grund für Ablehnung (wird dem Kunden gezeigt):', '');
@@ -91,6 +103,7 @@ export default function AdminOrders() {
     toast('Bestellung abgelehnt', { icon: '🚫' });
     fetchNew(newRows.page, newRows.search);
     fetchAcc(1, accRows.search);
+    fetchDec(1, decRows.search);
   });
   const setStatus = (o, status) => call(o.id, async () => {
     await api.post(`/orders/${o.id}/status`, { status });
@@ -137,6 +150,20 @@ export default function AdminOrders() {
         busyId={busyId}
         onSearch={(s) => fetchAcc(1, s)}
         onPage={(p) => fetchAcc(p, accRows.search)}
+        renderActions={(o) => (
+          <div className="flex flex-wrap gap-1.5">
+            <Pill onClick={() => setViewOrder(o)} className="bg-white/10 text-white/80 border-white/20">Ansehen</Pill>
+          </div>
+        )}
+      />
+
+      <Section
+        title="Abgelehnte Bestellungen"
+        accent="#f97316"
+        rows={decRows}
+        busyId={busyId}
+        onSearch={(s) => fetchDec(1, s)}
+        onPage={(p) => fetchDec(p, decRows.search)}
         renderActions={(o) => (
           <div className="flex flex-wrap gap-1.5">
             <Pill onClick={() => setViewOrder(o)} className="bg-white/10 text-white/80 border-white/20">Ansehen</Pill>
@@ -294,7 +321,10 @@ function OrderDetailsModal({ order, onClose }) {
               <div className="space-y-1 text-sm bg-white/5 p-4 rounded-xl border border-white/5">
                 <div className="flex justify-between"><span className="text-white/50">Name</span> <span>{order.customerName}</span></div>
                 <div className="flex justify-between"><span className="text-white/50">Telefon</span> <span>{order.customerPhone}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Adresse</span> <span className="text-right">{order.street}<br/>{order.postalCode} {order.city}</span></div>
+                {order.customerEmail && <div className="flex justify-between"><span className="text-white/50">E-Mail</span> <span>{order.customerEmail}</span></div>}
+                <div className="flex justify-between"><span className="text-white/50">Straße</span> <span>{order.street}</span></div>
+                <div className="flex justify-between"><span className="text-white/50">PLZ</span> <span>{order.postalCode}</span></div>
+                <div className="flex justify-between"><span className="text-white/50">Stadt</span> <span>{order.city}</span></div>
                 {order.notes && (
                    <div className="mt-3 pt-3 border-t border-white/10 text-yellow-400">
                      <span className="font-semibold block mb-1">Liefernotiz:</span>
@@ -311,6 +341,12 @@ function OrderDetailsModal({ order, onClose }) {
                 <div className="flex justify-between"><span className="text-white/50">Methode</span> <span>{order.paymentMethod}</span></div>
                 <div className="flex justify-between"><span className="text-white/50">Zahlungsstatus</span> <span>{order.paymentStatus}</span></div>
                 <div className="flex justify-between"><span className="text-white/50">Datum</span> <span>{new Date(order.createdAt).toLocaleString('de-AT')}</span></div>
+                {order.couponCode && Number(order.discount) > 0 && (
+                  <div className="flex justify-between text-emerald-400 mt-2 pt-2 border-t border-white/10">
+                    <span className="text-emerald-400/60">Gutschein</span>
+                    <span className="font-mono font-semibold">{order.couponCode} &nbsp;−€{Number(order.discount).toFixed(2)}</span>
+                  </div>
+                )}
                 {order.acceptedBy && (
                    <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-emerald-400"><span className="text-emerald-400/50">Akzeptiert von</span> <span>{order.acceptedBy.name}</span></div>
                 )}
@@ -319,6 +355,14 @@ function OrderDetailsModal({ order, onClose }) {
                 )}
                 {order.declinedReason && (
                    <div className="flex justify-between text-red-400"><span className="text-red-400/50">Ablehnungsgrund</span> <span>{order.declinedReason}</span></div>
+                )}
+                {order.paymentMethod === 'PAYPAL' && order.status === 'DECLINED' && (
+                  <div className="flex justify-between mt-2 pt-2 border-t border-white/10">
+                    <span className="text-white/50">PayPal Rückerstattung</span>
+                    {order.paypalRefundId
+                      ? <span className="text-emerald-400 font-mono text-xs">{order.paypalRefundId}</span>
+                      : <span className="text-red-400 font-semibold">Nicht erstattet ⚠</span>}
+                  </div>
                 )}
               </div>
             </div>
@@ -393,6 +437,9 @@ function OrderDetailsModal({ order, onClose }) {
             <div className="space-y-2 bg-white/5 p-4 rounded-xl border border-white/5 text-sm">
               <div className="flex justify-between text-white/60"><span>Zwischensumme</span><span>€ {Number(order.subtotal).toFixed(2)}</span></div>
               <div className="flex justify-between text-white/60"><span>Lieferung</span><span>€ {Number(order.deliveryFee).toFixed(2)}</span></div>
+              {order.couponCode && Number(order.discount) > 0 && (
+                <div className="flex justify-between text-emerald-400"><span>Gutschein ({order.couponCode})</span><span>−€ {Number(order.discount).toFixed(2)}</span></div>
+              )}
               <div className="flex justify-between text-lg font-bold mt-2 pt-2 border-t border-white/10 text-brand-500">
                 <span>Gesamt</span>
                 <span>€ {Number(order.total).toFixed(2)}</span>

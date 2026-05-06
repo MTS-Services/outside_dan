@@ -63,20 +63,11 @@ export default function Checkout() {
   // Delivery zones list
   const [zones, setZones] = useState([]);
   const [zonesLoading, setZonesLoading] = useState(true);
-  const [calculating, setCalculating] = useState(false);
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('');
   const [coupon, setCoupon] = useState(null);    // { code, discount }
   const [couponApplying, setCouponApplying] = useState(false);
-
-  useEffect(() => {
-    if (!zonesLoading) {
-      setCalculating(true);
-      const t = setTimeout(() => setCalculating(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [form.postalCode, coupon, zonesLoading]);
 
   useEffect(() => {
     api.get('/delivery-zones')
@@ -188,13 +179,23 @@ export default function Checkout() {
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
     setCouponApplying(true);
+    const start = Date.now();
+    const minDelay = () => new Promise((r) => setTimeout(r, Math.max(0, 300 - (Date.now() - start))));
     try {
       const { data } = await api.post('/coupons/validate', { code, orderAmount: sub });
+      await minDelay();
+      if (!data.valid) {
+        setCoupon(null);
+        toast.error(data.error || 'Ungültiger Gutscheincode');
+        return;
+      }
       setCoupon(data);
+      setCouponInput('');
       toast.success(`Gutschein angewendet: -€${Number(data.discount).toFixed(2)}`);
     } catch (err) {
+      await minDelay();
       setCoupon(null);
-      toast.error(err.response?.data?.message || 'Ungültiger Gutschein');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Ungültiger Gutscheincode');
     } finally { setCouponApplying(false); }
   }
 
@@ -332,7 +333,7 @@ export default function Checkout() {
                 value={form.postalCode}
                 onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
               >
-                <option value="">{zonesLoading ? 'Wird geladen…' : 'PLZ wählen…'}</option>
+                <option value="">{zonesLoading ? 'Wird geladen' : 'Auswählen'}</option>
                 {zones.map((z) => (
                   <option key={z.id} value={z.postalCode}>
                     {z.postalCode}{z.label ? ` – ${z.label}` : ''}
@@ -363,7 +364,7 @@ export default function Checkout() {
         </div>
 
         <div>
-          <div className="card p-6 sticky top-[90px]">
+          <div className="card p-6 sticky top-[90px]" translate="no">
             <h3 className="font-display text-3xl mb-4">DEINE BESTELLUNG</h3>
             <div className="space-y-4 mb-6">
               {items.map((i, idx) => {
@@ -406,7 +407,7 @@ export default function Checkout() {
               <div className="flex justify-between text-white/70">
                 <span>Lieferung</span>
                 {zonesLoading ? (
-                  <span className="text-white/30 text-xs">wird geladen…</span>
+                  <span className="text-white/30 text-xs">Wird geladen…</span>
                 ) : (
                   <span>{selectedZone ? `€${fee.toFixed(2)}` : '–'}</span>
                 )}
@@ -468,12 +469,12 @@ export default function Checkout() {
               </div>
             ) : (
               <button
-                disabled={submitting || zonesLoading || couponApplying || calculating}
+                disabled={submitting || zonesLoading || couponApplying}
                 type="submit"
                 className="btn-primary w-full justify-center py-4 text-lg shadow-brand disabled:opacity-60 transition-all"
               >
-                {zonesLoading || couponApplying || calculating
-                  ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Wird berechnet…</span>
+                {zonesLoading || couponApplying
+                  ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Wird geladen…</span>
                   : submitting
                     ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Bitte warten…</span>
                     : `Bestellen · €${total.toFixed(2)}`

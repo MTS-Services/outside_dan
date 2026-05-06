@@ -17,6 +17,7 @@ export default function AdminCoupons() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // coupon to delete
 
   const load = () => {
     setLoading(true);
@@ -34,7 +35,12 @@ export default function AdminCoupons() {
   }
 
   async function remove(c) {
-    if (!window.confirm(`Gutschein "${c.code}" löschen?`)) return;
+    setConfirmDelete(c);
+  }
+
+  async function confirmRemove() {
+    const c = confirmDelete;
+    setConfirmDelete(null);
     setBusyId(c.id);
     try { await api.delete(`/coupons/${c.id}`); toast.success('Gelöscht'); load(); }
     catch (e) { toast.error(e.displayMessage || 'Fehler'); }
@@ -144,6 +150,28 @@ export default function AdminCoupons() {
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
         />
+      )}
+
+      {confirmDelete && createPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-[#111318] border border-white/10 rounded-2xl p-6 space-y-5">
+            <h3 className="font-display text-xl">Gutschein löschen?</h3>
+            <p className="text-white/60 text-sm">
+              Gutschein <span className="font-mono font-bold text-white">{confirmDelete.code}</span> wird unwiderruflich gelöscht.
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2 rounded-xl bg-white/5 text-sm font-semibold hover:bg-white/10 transition"
+              >Abbrechen</button>
+              <button
+                onClick={confirmRemove}
+                className="flex-1 py-2 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-sm font-semibold transition"
+              >Löschen</button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

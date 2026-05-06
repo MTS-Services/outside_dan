@@ -7,7 +7,6 @@ const TABS = [
   { id: 'categories', label: 'Kategorien' },
   { id: 'tags',       label: 'Tags' },
   { id: 'extras',     label: 'Extras' },
-  { id: 'coupons',    label: 'Gutscheine' },
 ];
 
 export default function AdminMenu() {
@@ -31,7 +30,6 @@ export default function AdminMenu() {
       {tab === 'categories' && <CategoriesTab />}
       {tab === 'tags' && <TagsTab />}
       {tab === 'extras' && <ExtrasTab />}
-      {tab === 'coupons' && <CouponsTab />}
     </div>
   );
 }

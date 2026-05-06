@@ -48,10 +48,85 @@ export default function OrderTracking() {
         <h1 className="text-5xl mb-2">{declined ? 'ES TUT UNS LEID' : 'BESTELLUNG VERFOLGEN'}</h1>
         <p className="text-white/60">
           {declined
-            ? (order.declinedReason || 'Ihre Bestellung konnte derzeit nicht bearbeitet werden.')
+            ? 'Wir konnten Ihre Bestellung leider nicht annehmen. Details finden Sie unten.'
             : 'Live-Updates von unserer Küche bis zu Ihrer Tür.'}
         </p>
       </div>
+
+      {declined && (
+        <div className="space-y-4 mb-6">
+          {/* Decline reason */}
+          <div className="card p-5 border-red-500/30 bg-red-500/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-red-400 text-lg">✕</span>
+              <span className="text-red-300 font-semibold text-sm uppercase tracking-wider">Ablehnungsgrund</span>
+            </div>
+            <p className="text-white/90 text-base leading-relaxed">
+              {order.declinedReason || 'Kein Grund angegeben.'}
+            </p>
+          </div>
+
+          {/* PayPal refund info */}
+          {order.paymentMethod === 'PAYPAL' && (
+            <div className={`card p-5 border ${order.paypalRefundId ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-yellow-500/30 bg-yellow-500/10'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">{order.paypalRefundId ? '✓' : '⚠'}</span>
+                <span className={`font-semibold text-sm uppercase tracking-wider ${order.paypalRefundId ? 'text-emerald-300' : 'text-yellow-300'}`}>
+                  PayPal Rückerstattung
+                </span>
+              </div>
+              {order.paypalRefundId ? (
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Status</span>
+                    <span className="text-emerald-400 font-semibold">Erstattet ✓</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Betrag</span>
+                    <span className="text-white/90 font-bold">€ {Number(order.total).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Referenz</span>
+                    <span className="text-white/70 font-mono text-xs">{order.paypalRefundId}</span>
+                  </div>
+                  <p className="text-white/50 text-xs mt-2 pt-2 border-t border-white/10">
+                    Der Betrag wird innerhalb von 3–5 Werktagen auf Ihr PayPal-Konto zurückgebucht.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Status</span>
+                    <span className="text-yellow-400 font-semibold">Wird bearbeitet</span>
+                  </div>
+                  <p className="text-white/50 text-xs mt-2">
+                    Ihre Rückerstattung wird manuell durch das Restaurant bearbeitet. Bei Fragen wenden Sie sich bitte direkt an uns.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Payment summary for non-PayPal */}
+          {order.paymentMethod !== 'PAYPAL' && (
+            <div className="card p-5 border-white/10 bg-white/5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-white/50 text-sm uppercase tracking-wider font-semibold">Zahlung</span>
+              </div>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-white/50">Methode</span>
+                  <span className="text-white/80">{order.paymentMethod === 'CASH' ? 'Barzahlung' : 'Kartenzahlung bei Lieferung'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Status</span>
+                  <span className="text-emerald-400">Keine Belastung — Bestellung abgelehnt</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {order.acceptanceNote && !declined && (
         <div className="card p-4 mb-6 border-emerald-500/30 bg-emerald-500/10">
@@ -65,7 +140,7 @@ export default function OrderTracking() {
           <ol className="space-y-4">
             {STEPS.map((s, idx) => {
               const reached = idx <= stepIndex;
-              const current = idx === stepIndex;
+              const current = idx === stepIndex && stepIndex < STEPS.length - 1;
               return (
                 <li key={s} className="flex items-center gap-4">
                   <div className={`w-9 h-9 rounded-full grid place-items-center font-bold
