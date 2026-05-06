@@ -342,6 +342,8 @@ async function buildInvoicePayload(order) {
     });
   }
 
+  const discount = Number(order.discount || 0);
+
   // Split customerName into first / last name
   const nameParts = (order.customerName || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
@@ -356,6 +358,7 @@ async function buildInvoicePayload(order) {
   if (addressParts) notesParts.push(`Adresse: ${addressParts}`);
   if (order.notes) notesParts.push(`Hinweis: ${order.notes}`);
   notesParts.push(`Zahlung: ${order.paymentMethod}`);
+  if (order.couponCode && discount > 0) notesParts.push(`Gutschein: ${order.couponCode} (-€${discount.toFixed(2)})`);
   if (order.paypalOrderId) notesParts.push(`PayPal-ID: ${order.paypalOrderId}`);
 
   // PayPal orders are already captured — mark the invoice as paid immediately
@@ -430,6 +433,102 @@ async function buildInvoicePayload(order) {
 }
 
 /**
+ * Create a coupon in Ready2Order when one is created locally.
+ * coupon: { code, value, type, validUntil, usageLimit }
+ * Returns the R2O coupon_id on success, or null on failure.
+ */
+async function createCouponInR2o(coupon) {
+  if (!isConfigured()) return null;
+  try {
+    const payload = {
+      coupon_name: coupon.code,
+      coupon_identifier: coupon.code,
+      coupon_value: String(Number(coupon.value)),
+      coupon_type: 'coupon',
+      coupon_purpose: coupon.usageLimit === 1 ? 'single' : 'multi',
+      coupon_testMode: false,
+    };
+    if (coupon.validUntil) {
+      payload.coupon_validUntil = new Date(coupon.validUntil).toISOString().split('T')[0];
+    }
+    const { data } = await client.post('/coupons', payload);
+    const r2oId = data.coupon_id || data.id || null;
+    console.log(`[r2o] Coupon ${coupon.code} created in R2O (id=${r2oId})`);
+    return r2oId;
+  } catch (err) {
+    const msg = err.response?.data?.msg || err.message || '';
+    // If the coupon already exists in R2O, find it by scanning the full list
+    if (msg.toLowerCase().includes('already') || err.response?.status === 409) {
+      try {
+        const { data: list } = await client.get('/coupons');
+        const arr = Array.isArray(list) ? list : (list.coupons || []);
+        const existing = arr.find(c => String(c.coupon_identifier) === String(coupon.code));
+        if (existing) {
+          const r2oId = existing.coupon_id || existing.id;
+          console.log(`[r2o] Reusing existing R2O coupon for ${coupon.code} (id=${r2oId})`);
+          return r2oId;
+        }
+      } catch (lookupErr) {
+        console.warn('[r2o] Coupon lookup failed:', lookupErr.message);
+      }
+    }
+    console.warn('[r2o] Coupon create failed:', msg);
+    return null;
+  }
+}
+
+/**
+ * Update a coupon in Ready2Order.
+ * r2oCouponId: the R2O numeric coupon id
+ * coupon: fields to update
+ */
+async function updateCouponInR2o(r2oCouponId, coupon) {
+  if (!isConfigured() || !r2oCouponId) return;
+  try {
+    const payload = {
+      coupon_name: coupon.code,
+      coupon_identifier: coupon.code,
+      coupon_value: String(Number(coupon.value)),
+      coupon_purpose: coupon.usageLimit === 1 ? 'single' : 'multi',
+    };
+    if (coupon.validUntil) {
+      payload.coupon_validUntil = new Date(coupon.validUntil).toISOString().split('T')[0];
+    }
+    await client.put(`/coupons/${r2oCouponId}`, payload);
+    console.log(`[r2o] Coupon ${coupon.code} updated in R2O`);
+  } catch (err) {
+    console.warn('[r2o] Coupon update failed:', err.response?.data?.msg || err.message);
+  }
+}
+
+/**
+ * Delete a coupon from Ready2Order.
+ */
+async function deleteCouponInR2o(r2oCouponId) {
+  if (!isConfigured() || !r2oCouponId) return;
+  try {
+    await client.delete(`/coupons/${r2oCouponId}`);
+    console.log(`[r2o] Coupon id=${r2oCouponId} deleted from R2O`);
+  } catch (err) {
+    console.warn('[r2o] Coupon delete failed:', err.response?.data?.msg || err.message);
+  }
+}
+
+/**
+ * List all coupons from Ready2Order.
+ */
+async function listCouponsFromR2o() {
+  if (!isConfigured()) return [];
+  try {
+    const { data } = await client.get('/coupons');
+    return Array.isArray(data) ? data : (data.coupons || []);
+  } catch (err) {
+    console.warn('[r2o] Coupon list failed:', err.response?.data?.msg || err.message);
+    return [];
+  }
+}
+
+/**
  * Create an invoice (receipt) in ready2order.
  * Returns `{ invoiceId, receiptNo }` or throws on failure.
  */
@@ -458,4 +557,4 @@ async function createInvoiceForOrder(order) {
   }
 }
 
-module.exports = { listProducts, getPaymentMethods, createInvoiceForOrder, isConfigured };
+module.exports = { listProducts, getPaymentMethods, createInvoiceForOrder, isConfigured, createCouponInR2o, updateCouponInR2o, deleteCouponInR2o, listCouponsFromR2o };

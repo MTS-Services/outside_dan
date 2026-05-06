@@ -173,7 +173,7 @@ async function createOrder(input, userId = null) {
   (async () => {
     try {
       const staff = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true, NOT: { email: null } },
+        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true, email: { not: null } },
         select: { email: true },
       });
       const addresses = staff.map((u) => u.email).filter(Boolean);
@@ -293,9 +293,29 @@ async function declineOrder(id, reason) {
   if (order.status !== 'PENDING') {
     throw new ApiError(400, `Bestellung kann im Status ${order.status} nicht abgelehnt werden`);
   }
+
+  // Auto-refund PayPal payments
+  let paypalRefundId = null;
+  if (order.paymentMethod === 'PAYPAL' && order.paypalCaptureId) {
+    try {
+      const paypal = require('./paypalService');
+      const refund = await paypal.refundCapture(order.paypalCaptureId, {
+        note: reason || 'Bestellung abgelehnt',
+      });
+      paypalRefundId = refund.id || null;
+    } catch (err) {
+      // Log but don't block the decline — admin can refund manually
+      console.error('[PayPal refund failed]', err?.response?.data || err.message);
+    }
+  }
+
   const updated = await prisma.order.update({
     where: { id },
-    data: { status: 'DECLINED', declinedReason: reason || null },
+    data: {
+      status: 'DECLINED',
+      declinedReason: reason || null,
+      ...(paypalRefundId ? { paypalRefundId } : {}),
+    },
     include: ORDER_INCLUDE,
   });
   emitStatus(updated);

@@ -89,10 +89,27 @@ function isCaptureSuccessful(captureResp) {
   } catch { return false; }
 }
 
+/** Refund a captured payment. Refunds the full amount if no amount is provided. */
+async function refundCapture(captureId, { amount, currency, note } = {}) {
+  const tok = await getAccessToken();
+  const body = {};
+  if (amount) {
+    body.amount = { currency_code: currency || config.paypal.currency, value: Number(amount).toFixed(2) };
+  }
+  if (note) body.note_to_payer = String(note).slice(0, 255);
+  const { data } = await axios.post(
+    `${BASE}/v2/payments/captures/${captureId}/refund`,
+    body,
+    { headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } }
+  );
+  return data; // { id, status: 'COMPLETED'|'PENDING', ... }
+}
+
 module.exports = {
   isConfigured,
   createOrder,
   captureOrder,
+  refundCapture,
   getCaptureId,
   getCaptureAmount,
   isCaptureSuccessful,

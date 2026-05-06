@@ -160,6 +160,7 @@ model Order {
   // PayPal
   paypalOrderId   String?
   paypalCaptureId String?
+  paypalRefundId  String?
 
   // Customer
   userId        String?
@@ -265,17 +266,18 @@ model DeliveryZone {
 }
 
 model Coupon {
-  id          String     @id @default(uuid())
-  code        String     @unique
-  type        CouponType @default(FIXED)
-  value       Decimal    @db.Decimal(10, 2)
-  minOrder    Decimal    @db.Decimal(10, 2) @default(0)
-  validFrom   DateTime?
-  validUntil  DateTime?
-  isActive    Boolean    @default(true)
-  usageLimit  Int?
-  usageCount  Int        @default(0)
-  orders      Order[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id           String     @id @default(uuid())
+  code         String     @unique
+  type         CouponType @default(FIXED)
+  value        Decimal    @db.Decimal(10, 2)
+  minOrder     Decimal    @db.Decimal(10, 2) @default(0)
+  validFrom    DateTime?
+  validUntil   DateTime?
+  isActive     Boolean    @default(true)
+  usageLimit   Int?
+  usageCount   Int        @default(0)
+  r2oCouponId  String?
+  orders       Order[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
