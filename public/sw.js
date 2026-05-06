@@ -19,8 +19,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Tarantella';
   const options = {
     body: data.body || '',
-    icon: data.icon || '/uploads/logo.png',
-    badge: '/uploads/logo.png',
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
     tag: data.tag || 'tarantella-notification',
     renotify: true,
     requireInteraction: data.requireInteraction || false,
