@@ -91,7 +91,7 @@ export default function AdminLayout() {
         <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 overflow-visible">
           <img src="/logo.png" alt="Tarantella" className="h-16 w-auto object-contain" />
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-white/40 tracking-widest uppercase">{user?.role === 'ADMIN' ? 'Admin' : 'Subadmin'}</div>
+            <div className="text-[10px] text-white/40 tracking-widest uppercase">{user?.role === 'ADMIN' ? 'Admin' : 'Küchen-Dashboard'}</div>
           </div>
           {/* Close button - mobile only */}
           <button
