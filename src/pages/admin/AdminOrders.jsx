@@ -356,12 +356,24 @@ function OrderDetailsModal({ order, onClose }) {
                 {order.declinedReason && (
                    <div className="flex justify-between text-red-400"><span className="text-red-400/50">Ablehnungsgrund</span> <span>{order.declinedReason}</span></div>
                 )}
-                {order.paymentMethod === 'PAYPAL' && order.status === 'DECLINED' && (
-                  <div className="flex justify-between mt-2 pt-2 border-t border-white/10">
-                    <span className="text-white/50">PayPal Rückerstattung</span>
-                    {order.paypalRefundId
-                      ? <span className="text-emerald-400 font-mono text-xs">{order.paypalRefundId}</span>
-                      : <span className="text-red-400 font-semibold">Nicht erstattet ⚠</span>}
+                {order.paymentMethod === 'PAYPAL' && (
+                  <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                    <div className="text-xs font-semibold text-brand-400 uppercase tracking-widest mb-1">PayPal Details</div>
+                    {order.paypalCaptureId && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-white/50 shrink-0">Capture ID</span>
+                        <span className="text-white/80 font-mono text-xs break-all text-right">{order.paypalCaptureId}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/50">Betrag</span>
+                      <span className="text-white/90 font-bold">€ {Number(order.total).toFixed(2)}</span>
+                    </div>
+                    {order.status === 'DECLINED' && (
+                      <div className="text-xs text-yellow-300/80 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5 mt-1">
+                        Bitte Rückerstattung manuell über das PayPal-Dashboard durchführen (Capture ID oben verwenden).
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

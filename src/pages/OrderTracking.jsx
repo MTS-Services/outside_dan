@@ -68,42 +68,22 @@ export default function OrderTracking() {
 
           {/* PayPal refund info */}
           {order.paymentMethod === 'PAYPAL' && (
-            <div className={`card p-5 border ${order.paypalRefundId ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-yellow-500/30 bg-yellow-500/10'}`}>
+            <div className="card p-5 border-yellow-500/30 bg-yellow-500/10">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{order.paypalRefundId ? '✓' : '⚠'}</span>
-                <span className={`font-semibold text-sm uppercase tracking-wider ${order.paypalRefundId ? 'text-emerald-300' : 'text-yellow-300'}`}>
+                <span className="text-lg">💳</span>
+                <span className="font-semibold text-sm uppercase tracking-wider text-yellow-300">
                   PayPal Rückerstattung
                 </span>
               </div>
-              {order.paypalRefundId ? (
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/50">Status</span>
-                    <span className="text-emerald-400 font-semibold">Erstattet ✓</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/50">Betrag</span>
-                    <span className="text-white/90 font-bold">€ {Number(order.total).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/50">Referenz</span>
-                    <span className="text-white/70 font-mono text-xs">{order.paypalRefundId}</span>
-                  </div>
-                  <p className="text-white/50 text-xs mt-2 pt-2 border-t border-white/10">
-                    Der Betrag wird innerhalb von 3–5 Werktagen auf Ihr PayPal-Konto zurückgebucht.
-                  </p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-white/50">Betrag</span>
+                  <span className="text-white/90 font-bold">€ {Number(order.total).toFixed(2)}</span>
                 </div>
-              ) : (
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/50">Status</span>
-                    <span className="text-yellow-400 font-semibold">Wird bearbeitet</span>
-                  </div>
-                  <p className="text-white/50 text-xs mt-2">
-                    Ihre Rückerstattung wird manuell durch das Restaurant bearbeitet. Bei Fragen wenden Sie sich bitte direkt an uns.
-                  </p>
-                </div>
-              )}
+                <p className="text-white/70 text-sm mt-2 pt-2 border-t border-white/10">
+                  Ihr Geld wird innerhalb von <strong className="text-yellow-200">3–5 Werktagen</strong> auf Ihr PayPal-Konto zurücküberwiesen.
+                </p>
+              </div>
             </div>
           )}
 
