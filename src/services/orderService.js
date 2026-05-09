@@ -294,27 +294,11 @@ async function declineOrder(id, reason) {
     throw new ApiError(400, `Bestellung kann im Status ${order.status} nicht abgelehnt werden`);
   }
 
-  // Auto-refund PayPal payments
-  let paypalRefundId = null;
-  if (order.paymentMethod === 'PAYPAL' && order.paypalCaptureId) {
-    try {
-      const paypal = require('./paypalService');
-      const refund = await paypal.refundCapture(order.paypalCaptureId, {
-        note: reason || 'Bestellung abgelehnt',
-      });
-      paypalRefundId = refund.id || null;
-    } catch (err) {
-      // Log but don't block the decline — admin can refund manually
-      console.error('[PayPal refund failed]', err?.response?.data || err.message);
-    }
-  }
-
   const updated = await prisma.order.update({
     where: { id },
     data: {
       status: 'DECLINED',
       declinedReason: reason || null,
-      ...(paypalRefundId ? { paypalRefundId } : {}),
     },
     include: ORDER_INCLUDE,
   });
