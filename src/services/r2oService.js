@@ -411,14 +411,13 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // R2O expects discounts as an array. Use absolute value discount.
+    // R2O expects discounts as an array with lowercase type
     ...(discount > 0
       ? {
           discounts: [{
             discount_name: order.couponCode || 'Rabatt',
-            discount_type: 'ABSOLUTE',
+            discount_type: 'absolute',
             discount_value: discount,
-            discount_absoluteValue: discount,
           }],
         }
       : {}),
