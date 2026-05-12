@@ -428,7 +428,7 @@ async function buildInvoicePayload(order) {
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
     // Use pre-configured R2O discount_id when available (proper receipt line)
-    ...(discount > 0 && r2oDiscountId ? { discounts: [{ discount_id: r2oDiscountId }] } : {}),
+    ...(discount > 0 && r2oDiscountId ? { invoice_discounts: [{ discount_id: r2oDiscountId }] } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
