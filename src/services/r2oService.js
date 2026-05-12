@@ -98,7 +98,8 @@ async function resolveDefaultVatId() {
   if (_cache._vatFetched) return _cache.vatId;
   const { data } = await client.get('/vat-rates');
   const rates = Array.isArray(data) ? data : [];
-  _cache.vatId = rates.length ? rates[0].id : undefined;
+  const first = rates[0];
+  _cache.vatId = first ? (first.vat_id ?? first.id) : undefined;
   _cache._vatFetched = true;
   return _cache.vatId;
 }
@@ -293,8 +294,9 @@ async function buildInvoicePayload(order) {
   // Process items sequentially (not concurrently) so the array order is
   // deterministic — Kundeninfo is pushed after this loop and must be last.
   for (const it of order.items) {
-    // Use per-item vatId from MenuItem if set, otherwise fall back to account default
-    const itemVatId = it.menuItem?.vatId || vatId;
+    // Always use the live-fetched account default VAT ID.
+    // menuItem.vatId is account-specific and becomes stale when the R2O account changes.
+    const itemVatId = vatId;
     const productId =
       it.menuItem?.r2oProductId ||
       (await resolveProductId(it.name, Number(it.price), itemVatId));

@@ -173,7 +173,7 @@ async function createOrder(input, userId = null) {
   (async () => {
     try {
       const staff = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true, email: { not: null } },
+        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true, NOT: [{ email: null }] },
         select: { email: true },
       });
       const addresses = staff.map((u) => u.email).filter(Boolean);
