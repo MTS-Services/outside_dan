@@ -294,9 +294,8 @@ async function buildInvoicePayload(order) {
   // Process items sequentially (not concurrently) so the array order is
   // deterministic — Kundeninfo is pushed after this loop and must be last.
   for (const it of order.items) {
-    // Always use the live-fetched account default VAT ID.
-    // menuItem.vatId is account-specific and becomes stale when the R2O account changes.
-    const itemVatId = vatId;
+      // Use the per-item VAT ID from the menu item if set, else fall back to the account default.
+      const itemVatId = it.menuItem?.vatId || vatId;
     const productId =
       it.menuItem?.r2oProductId ||
       (await resolveProductId(it.name, Number(it.price), itemVatId));
