@@ -411,12 +411,14 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // Apply coupon: send numeric R2O coupon ID (preferred) and code as fallback identifier
-    ...(discount > 0 && order.coupon?.r2oCouponId
-      ? { coupon_id: Number(order.coupon.r2oCouponId) }
-      : discount > 0 && order.couponCode
-        ? { coupon_identifier: order.couponCode }
-        : {}),
+    // R2O expects discounts as an array. Use coupon_id if synced, else absolute value.
+    ...(discount > 0
+      ? {
+          discounts: order.coupon?.r2oCouponId
+            ? [{ coupon_id: Number(order.coupon.r2oCouponId) }]
+            : [{ discount_absoluteValue: discount, discount_name: order.couponCode || 'Rabatt' }],
+        }
+      : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
@@ -548,8 +550,7 @@ async function createInvoiceForOrder(order) {
   try {
     payload = await buildInvoicePayload(order);
     console.log('[r2o] invoice payload coupon fields:', JSON.stringify({
-      coupon_id: payload.coupon_id,
-      coupon_identifier: payload.coupon_identifier,
+      discounts: payload.discounts,
       order_coupon: order.coupon,
       order_couponCode: order.couponCode,
       order_discount: order.discount,
@@ -557,12 +558,8 @@ async function createInvoiceForOrder(order) {
     const { data } = await client.post('/document/invoice', payload);
     console.log('[r2o] invoice created raw response keys:', Object.keys(data));
     console.log('[r2o] invoice created discount fields:', JSON.stringify({
-      document_discount: data.document_discount,
-      invoice_discount: data.invoice_discount,
-      coupon: data.coupon,
-      discount: data.discount,
+      discounts: data.discounts,
       invoice_total: data.invoice_total,
-      invoice_totalGross: data.invoice_totalGross,
     }));
     return {
       invoiceId: data.invoice_id || data.id || null,
