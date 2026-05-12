@@ -2,6 +2,8 @@
  * Email service (Nodemailer + SMTP).
  * If SMTP env vars are missing, calls become no-ops (logged) — never throws.
  */
+const fs = require('fs');
+const path = require('path');
 const nodemailer = require('nodemailer');
 const config = require('../config');
 const prisma = require('../config/prisma');
@@ -41,6 +43,12 @@ async function send({ to, subject, html, text }) {
     console.log('[email] skipped (no SMTP or no recipient):', subject);
     return { skipped: true };
   }
+  // Attach logo as CID inline image so it works regardless of the server's public URL
+  const attachments = [];
+  const logoPath = path.join(__dirname, '../../uploads/logo.png');
+  if (fs.existsSync(logoPath)) {
+    attachments.push({ filename: 'logo.png', path: logoPath, cid: 'email-logo' });
+  }
   try {
     const info = await t.sendMail({
       from: config.smtp.from,
@@ -48,6 +56,7 @@ async function send({ to, subject, html, text }) {
       subject,
       html,
       text: text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''),
+      attachments,
     });
     return { messageId: info.messageId };
   } catch (err) {
@@ -65,7 +74,7 @@ function shellHTML({ title, preheader, content, settings = {} }) {
   const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
   const address = settings.restaurant_address || config.restaurant.address || '';
   const phone = settings.restaurant_phone || config.restaurant.phone || '';
-  const logoUrl = `${config.apiUrl}/uploads/logo.png`;
+  const logoUrl = 'cid:email-logo';
   const footer = [name, address, phone].filter(Boolean).join(' · ');
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>${title}</title></head>
@@ -104,6 +113,7 @@ function itemsTable(order) {
     ${rows}
     <tr><td style="padding:10px 0;color:rgba(255,255,255,0.6);">Zwischensumme</td><td align="right" style="padding:10px 0;">€ ${fmt(order.subtotal)}</td></tr>
     <tr><td style="padding:4px 0;color:rgba(255,255,255,0.6);">Lieferung</td><td align="right" style="padding:4px 0;">€ ${fmt(order.deliveryFee)}</td></tr>
+    ${Number(order.discount || 0) > 0 ? `<tr><td style="padding:4px 0;color:rgba(255,255,255,0.6);">Gutschein${order.couponCode ? ` (${order.couponCode})` : ''}</td><td align="right" style="padding:4px 0;color:#6ee7b7;">-€ ${fmt(Number(order.discount))}</td></tr>` : ''}
     <tr><td style="padding:10px 0;border-top:2px solid #D9AF47;font-weight:700;font-size:18px;">Gesamt</td>
         <td align="right" style="padding:10px 0;border-top:2px solid #D9AF47;font-weight:700;font-size:18px;color:#D9AF47;">€ ${fmt(order.total)}</td></tr>
   </table>`;
