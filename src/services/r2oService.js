@@ -427,8 +427,16 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // Use pre-configured R2O discount_id when available (proper receipt line)
-    ...(discount > 0 && r2oDiscountId ? { invoice_discounts: [{ discount_id: r2oDiscountId }] } : {}),
+    // Use pre-configured R2O discount_id when available (proper receipt line).
+    // Per R2O OpenAPI spec the field names are invoice_discountId / invoice_discountValue / invoice_discountUnit
+    // and the value MUST be negative.
+    ...(discount > 0 && r2oDiscountId ? {
+      invoice_discounts: [{
+        invoice_discountId: r2oDiscountId,
+        invoice_discountValue: -Math.abs(discount),
+        invoice_discountUnit: 'currency',
+      }],
+    } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
@@ -695,7 +703,6 @@ async function createInvoiceForOrder(order) {
       coupon_r2oDiscountId: order.coupon?.r2oDiscountId,
       payload_invoice_discounts: payload.invoice_discounts ?? 'NOT SET',
     }));
-
     const { data } = await client.post('/document/invoice', payload);
 
     // Log what R2O returned for discounts
