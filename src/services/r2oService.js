@@ -345,20 +345,33 @@ async function buildInvoicePayload(order) {
   }
 
   const discount = Number(order.discount || 0);
-  const r2oDiscountId = order.coupon?.r2oDiscountId ? Number(order.coupon.r2oDiscountId) : null;
 
-  // If the coupon has a pre-configured R2O discount_id use the proper discounts
-  // array. Otherwise fall back to reducing the first food item's price so the
-  // receipt total still matches the amount charged to the customer.
-  if (discount > 0 && !r2oDiscountId) {
-    const foodIdx = items.findIndex((it) => it.item_name !== 'Lieferung' && !it.item_name.startsWith('zzz'));
-    if (foodIdx !== -1) {
-      const reduced = Math.round((items[foodIdx].item_price - discount) * 100) / 100;
-      items[foodIdx] = {
-        ...items[foodIdx],
-        item_price: reduced,
-        item_name: `${items[foodIdx].item_name} (Gutschein ${order.couponCode || ''}: -€${discount.toFixed(2)})`,
-      };
+  // Distribute the discount strictly across all food items so receipt prices match API values.
+  if (discount > 0) {
+    const foodItems = items.filter((it) => it.item_name !== 'Lieferung' && !it.item_name.startsWith('zzz'));
+    const totalFoodPrice = foodItems.reduce((sum, it) => sum + (it.item_price * it.item_quantity), 0);
+
+    if (totalFoodPrice > 0) {
+      let remainingDiscount = discount;
+      const appliedPercentStr = Math.round((discount / totalFoodPrice) * 100);
+      const couponLabel = order.couponCode ? ` ${order.couponCode}` : '';
+
+      foodItems.forEach((it, idx) => {
+        const lineTotal = it.item_price * it.item_quantity;
+        let lineDiscount;
+        if (idx === foodItems.length - 1) {
+          lineDiscount = Math.round(remainingDiscount * 100) / 100; // sink remaining
+        } else {
+          lineDiscount = Math.round((lineTotal / totalFoodPrice) * discount * 100) / 100;
+        }
+
+        remainingDiscount -= lineDiscount;
+        const unitDiscount = lineDiscount / it.item_quantity;
+
+        // Apply discount directly to item price and name mapping
+        it.item_price = Math.max(0, Math.round((it.item_price - unitDiscount) * 100) / 100);
+        it.item_name = `${it.item_name} (discount applied${couponLabel} ${appliedPercentStr}% -€${lineDiscount.toFixed(2)})`;
+      });
     }
   }
 
@@ -427,16 +440,6 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // Use pre-configured R2O discount_id when available (proper receipt line).
-    // Per R2O OpenAPI spec the field names are invoice_discountId / invoice_discountValue / invoice_discountUnit
-    // and the value MUST be negative.
-    ...(discount > 0 && r2oDiscountId ? {
-      invoice_discounts: [{
-        invoice_discountId: parseInt(r2oDiscountId, 10),
-        invoice_discountValue: String(-Math.abs(discount)),
-        invoice_discountUnit: 'currency',
-      }],
-    } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
