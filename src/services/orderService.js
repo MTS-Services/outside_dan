@@ -23,6 +23,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 const ORDER_INCLUDE = {
   items: { include: { menuItem: true, extras: true } },
   acceptedBy: { select: { id: true, name: true, email: true, role: true } },
+  coupon: { select: { r2oCouponId: true } },
 };
 
 async function generateOrderNumber() {
@@ -173,7 +174,7 @@ async function createOrder(input, userId = null) {
   (async () => {
     try {
       const staff = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true, email: { not: null } },
+        where: { role: { in: ['ADMIN', 'SUBADMIN'] }, blocked: false, emailNotificationsEnabled: true },
         select: { email: true },
       });
       const addresses = staff.map((u) => u.email).filter(Boolean);
