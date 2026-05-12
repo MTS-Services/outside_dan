@@ -180,7 +180,7 @@ export default function AdminCoupons() {
 function CouponEditor({ coupon, onClose, onSaved }) {
   const [form, setForm] = useState({
     code: coupon?.code || '',
-    type: coupon?.type || 'FIXED',
+    type: coupon?.type || 'PERCENT',
     value: coupon?.value != null ? String(coupon.value) : '',
     minOrder: coupon?.minOrder != null ? String(coupon.minOrder) : '0',
     validFrom: coupon?.validFrom ? coupon.validFrom.split('T')[0] : '',
@@ -227,7 +227,6 @@ function CouponEditor({ coupon, onClose, onSaved }) {
           <label className="block">
             <span className="label">Typ</span>
             <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-              <option value="FIXED">Fester Betrag (€)</option>
               <option value="PERCENT">Prozent (%)</option>
             </select>
           </label>
@@ -235,7 +234,7 @@ function CouponEditor({ coupon, onClose, onSaved }) {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="block">
-            <span className="label">Wert * {form.type === 'PERCENT' ? '(%)' : '(€)'}</span>
+            <span className="label">Wert * (%)</span>
             <input className="input" type="number" min="0" step="0.01" required value={form.value}
               onChange={(e) => setForm({ ...form, value: e.target.value })} />
           </label>
