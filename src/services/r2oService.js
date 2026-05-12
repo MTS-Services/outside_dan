@@ -432,9 +432,9 @@ async function buildInvoicePayload(order) {
     // and the value MUST be negative.
     ...(discount > 0 && r2oDiscountId ? {
       invoice_discounts: [{
-        invoice_discountId: r2oDiscountId,
-        invoice_discountValue: -Math.abs(discount),
-        invoice_discountUnit: 'currency',
+        discount_id: r2oDiscountId,
+        discount_value: -Math.abs(discount),
+        discount_unit: 'currency',
       }],
     } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
