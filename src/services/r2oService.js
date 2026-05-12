@@ -345,6 +345,22 @@ async function buildInvoicePayload(order) {
   }
 
   const discount = Number(order.discount || 0);
+  const r2oDiscountId = order.coupon?.r2oDiscountId ? Number(order.coupon.r2oDiscountId) : null;
+
+  // If the coupon has a pre-configured R2O discount_id use the proper discounts
+  // array. Otherwise fall back to reducing the first food item's price so the
+  // receipt total still matches the amount charged to the customer.
+  if (discount > 0 && !r2oDiscountId) {
+    const foodIdx = items.findIndex((it) => it.item_name !== 'Lieferung' && !it.item_name.startsWith('zzz'));
+    if (foodIdx !== -1) {
+      const reduced = Math.round((items[foodIdx].item_price - discount) * 100) / 100;
+      items[foodIdx] = {
+        ...items[foodIdx],
+        item_price: reduced,
+        item_name: `${items[foodIdx].item_name} (Gutschein ${order.couponCode || ''}: -€${discount.toFixed(2)})`,
+      };
+    }
+  }
 
   // Split customerName into first / last name
   const nameParts = (order.customerName || '').trim().split(/\s+/);
@@ -411,16 +427,8 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // R2O expects discounts as an array with lowercase type
-    ...(discount > 0
-      ? {
-          discounts: [{
-            discount_name: order.couponCode || 'Rabatt',
-            discount_type: 'absolute',
-            discount_value: discount,
-          }],
-        }
-      : {}),
+    // Use pre-configured R2O discount_id when available (proper receipt line)
+    ...(discount > 0 && r2oDiscountId ? { discounts: [{ discount_id: r2oDiscountId }] } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
@@ -540,6 +548,98 @@ async function listCouponsFromR2o() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// R2O Discount functions (pre-configured discounts referenced by discount_id
+// in the invoice payload — the only way R2O applies discounts to receipts).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a discount in Ready2Order.
+ * coupon: { code, type ('FIXED'|'PERCENT'), value }
+ * Returns the R2O discount_id on success, or null on failure.
+ */
+async function createDiscountInR2o(coupon) {
+  if (!isConfigured()) return null;
+  try {
+    const payload = {
+      discount_name: coupon.code,
+      discount_type: coupon.type === 'PERCENT' ? 'percent' : 'absolute',
+      discount_value: Number(coupon.value),
+      discount_isActive: true,
+    };
+    const { data } = await client.post('/discounts', payload);
+    const r2oId = data.discount_id || data.id || null;
+    console.log(`[r2o] Discount ${coupon.code} created in R2O (id=${r2oId})`);
+    return r2oId;
+  } catch (err) {
+    const msg = err.response?.data?.msg || err.message || '';
+    // If a discount with the same name already exists, reuse it
+    if (msg.toLowerCase().includes('already') || err.response?.status === 409) {
+      try {
+        const { data: list } = await client.get('/discounts');
+        const arr = Array.isArray(list) ? list : (list.discounts || []);
+        const existing = arr.find((d) => d.discount_name === coupon.code);
+        if (existing) {
+          const r2oId = existing.discount_id || existing.id;
+          console.log(`[r2o] Reusing existing R2O discount for ${coupon.code} (id=${r2oId})`);
+          return r2oId;
+        }
+      } catch (lookupErr) {
+        console.warn('[r2o] Discount lookup failed:', lookupErr.message);
+      }
+    }
+    console.warn('[r2o] Discount create failed:', msg);
+    return null;
+  }
+}
+
+/**
+ * Update a discount in Ready2Order.
+ * r2oDiscountId: the R2O numeric discount id
+ * coupon: fields to update { code, type, value }
+ */
+async function updateDiscountInR2o(r2oDiscountId, coupon) {
+  if (!isConfigured() || !r2oDiscountId) return;
+  try {
+    const payload = {
+      discount_name: coupon.code,
+      discount_type: coupon.type === 'PERCENT' ? 'percent' : 'absolute',
+      discount_value: Number(coupon.value),
+    };
+    await client.put(`/discounts/${r2oDiscountId}`, payload);
+    console.log(`[r2o] Discount ${coupon.code} updated in R2O`);
+  } catch (err) {
+    console.warn('[r2o] Discount update failed:', err.response?.data?.msg || err.message);
+  }
+}
+
+/**
+ * Delete a discount from Ready2Order.
+ */
+async function deleteDiscountInR2o(r2oDiscountId) {
+  if (!isConfigured() || !r2oDiscountId) return;
+  try {
+    await client.delete(`/discounts/${r2oDiscountId}`);
+    console.log(`[r2o] Discount id=${r2oDiscountId} deleted from R2O`);
+  } catch (err) {
+    console.warn('[r2o] Discount delete failed:', err.response?.data?.msg || err.message);
+  }
+}
+
+/**
+ * List all discounts from Ready2Order.
+ */
+async function listDiscountsFromR2o() {
+  if (!isConfigured()) return [];
+  try {
+    const { data } = await client.get('/discounts');
+    return Array.isArray(data) ? data : (data.discounts || []);
+  } catch (err) {
+    console.warn('[r2o] Discount list failed:', err.response?.data?.msg || err.message);
+    return [];
+  }
+}
+
 /**
  * Create an invoice (receipt) in ready2order.
  * Returns `{ invoiceId, receiptNo }` or throws on failure.
@@ -551,19 +651,7 @@ async function createInvoiceForOrder(order) {
   let payload;
   try {
     payload = await buildInvoicePayload(order);
-    console.log('[r2o] invoice payload coupon fields:', JSON.stringify({
-      discounts: payload.discounts,
-      order_coupon: order.coupon,
-      order_couponCode: order.couponCode,
-      order_discount: order.discount,
-    }));
     const { data } = await client.post('/document/invoice', payload);
-    console.log('[r2o] invoice created raw response keys:', Object.keys(data));
-    console.log('[r2o] invoice created discount fields:', JSON.stringify({
-      discounts: data.discounts,
-      invoice_total: data.invoice_total,
-      invoice_totalNet: data.invoice_totalNet,
-    }));
     return {
       invoiceId: data.invoice_id || data.id || null,
       receiptNo: data.invoice_number || data.receipt_number || null,
@@ -581,4 +669,17 @@ async function createInvoiceForOrder(order) {
   }
 }
 
-module.exports = { listProducts, getPaymentMethods, createInvoiceForOrder, isConfigured, createCouponInR2o, updateCouponInR2o, deleteCouponInR2o, listCouponsFromR2o };
+module.exports = {
+  listProducts,
+  getPaymentMethods,
+  createInvoiceForOrder,
+  isConfigured,
+  createCouponInR2o,
+  updateCouponInR2o,
+  deleteCouponInR2o,
+  listCouponsFromR2o,
+  createDiscountInR2o,
+  updateDiscountInR2o,
+  deleteDiscountInR2o,
+  listDiscountsFromR2o,
+};

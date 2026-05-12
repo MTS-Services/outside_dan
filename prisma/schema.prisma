@@ -276,7 +276,8 @@ model Coupon {
   isActive     Boolean    @default(true)
   usageLimit   Int?
   usageCount   Int        @default(0)
-  r2oCouponId  String?
+  r2oCouponId   String?
+  r2oDiscountId String?
   orders       Order[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
