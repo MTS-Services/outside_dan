@@ -547,7 +547,23 @@ async function createInvoiceForOrder(order) {
   let payload;
   try {
     payload = await buildInvoicePayload(order);
+    console.log('[r2o] invoice payload coupon fields:', JSON.stringify({
+      coupon_id: payload.coupon_id,
+      coupon_identifier: payload.coupon_identifier,
+      order_coupon: order.coupon,
+      order_couponCode: order.couponCode,
+      order_discount: order.discount,
+    }));
     const { data } = await client.post('/document/invoice', payload);
+    console.log('[r2o] invoice created raw response keys:', Object.keys(data));
+    console.log('[r2o] invoice created discount fields:', JSON.stringify({
+      document_discount: data.document_discount,
+      invoice_discount: data.invoice_discount,
+      coupon: data.coupon,
+      discount: data.discount,
+      invoice_total: data.invoice_total,
+      invoice_totalGross: data.invoice_totalGross,
+    }));
     return {
       invoiceId: data.invoice_id || data.id || null,
       receiptNo: data.invoice_number || data.receipt_number || null,
