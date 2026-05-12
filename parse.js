@@ -1,0 +1,1 @@
+const fs=require('fs'); let d=fs.readFileSync('spec.json','utf8'); for(let i=199861; i>0; i--) { try { JSON.parse(d.slice(0, i)); console.log('Found valid JSON at', i); fs.writeFileSync('spec.json', JSON.stringify(JSON.parse(d.slice(0,i)),null,2)); break; } catch(e){} }
