@@ -411,12 +411,15 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
-    // R2O expects discounts as an array. Use coupon_id if synced, else absolute value.
+    // R2O expects discounts as an array. Use absolute value discount.
     ...(discount > 0
       ? {
-          discounts: order.coupon?.r2oCouponId
-            ? [{ coupon_id: Number(order.coupon.r2oCouponId) }]
-            : [{ discount_absoluteValue: discount, discount_name: order.couponCode || 'Rabatt' }],
+          discounts: [{
+            discount_name: order.couponCode || 'Rabatt',
+            discount_type: 'ABSOLUTE',
+            discount_value: discount,
+            discount_absoluteValue: discount,
+          }],
         }
       : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
@@ -560,6 +563,7 @@ async function createInvoiceForOrder(order) {
     console.log('[r2o] invoice created discount fields:', JSON.stringify({
       discounts: data.discounts,
       invoice_total: data.invoice_total,
+      invoice_totalNet: data.invoice_totalNet,
     }));
     return {
       invoiceId: data.invoice_id || data.id || null,
