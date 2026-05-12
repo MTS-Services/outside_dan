@@ -411,6 +411,12 @@ async function buildInvoicePayload(order) {
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
+    // Apply discount — try all known R2O field name variants for flat absolute discount
+    ...(discount > 0 ? {
+      document_discount: discount,
+      invoice_discount: discount,
+      document_discountAbsolute: discount,
+    } : {}),
     // Customer / address fields — nested object (r2o API) + flat top-level as fallback
     invoiceAddress: {
       invoiceAddress_firstname: firstName,
