@@ -553,6 +553,36 @@ async function listCouponsFromR2o() {
 // in the invoice payload — the only way R2O applies discounts to receipts).
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Cached discount group id — fetched once from R2O the first time it's needed. */
+let _cachedDiscountGroupId = null;
+
+/**
+ * Fetch the first active discount group from R2O and cache its id.
+ * If none exist, creates one named "Gutscheine".
+ */
+async function resolveDiscountGroupId() {
+  if (_cachedDiscountGroupId) return _cachedDiscountGroupId;
+  try {
+    const { data } = await client.get('/discountGroups');
+    const groups = Array.isArray(data) ? data : [];
+    const active = groups.find((g) => g.discountGroup_active !== false) || groups[0];
+    if (active) {
+      _cachedDiscountGroupId = active.discountGroup_id;
+      return _cachedDiscountGroupId;
+    }
+    // No groups exist — create one
+    const { data: created } = await client.post('/discountGroups', {
+      discountGroup_name: 'Gutscheine',
+      discountGroup_active: true,
+    });
+    _cachedDiscountGroupId = created.discountGroup_id;
+    return _cachedDiscountGroupId;
+  } catch (err) {
+    console.warn('[r2o] Could not resolve discountGroup_id:', err.response?.data?.msg || err.message);
+    return null;
+  }
+}
+
 /**
  * Create a discount in Ready2Order.
  * coupon: { code, type ('FIXED'|'PERCENT'), value }
@@ -561,11 +591,17 @@ async function listCouponsFromR2o() {
 async function createDiscountInR2o(coupon) {
   if (!isConfigured()) return null;
   try {
+    const discountGroupId = await resolveDiscountGroupId();
+    if (!discountGroupId) {
+      console.warn('[r2o] Discount create skipped: no discountGroup_id available');
+      return null;
+    }
     const payload = {
       discount_name: coupon.code,
-      discount_type: coupon.type === 'PERCENT' ? 'percent' : 'absolute',
+      discountGroup_id: discountGroupId,
+      discount_unit: coupon.type === 'PERCENT' ? 'percent' : 'currency',
       discount_value: Number(coupon.value),
-      discount_isActive: true,
+      discount_active: true,
     };
     const { data } = await client.post('/discounts', payload);
     const r2oId = data.discount_id || data.id || null;
@@ -603,7 +639,7 @@ async function updateDiscountInR2o(r2oDiscountId, coupon) {
   try {
     const payload = {
       discount_name: coupon.code,
-      discount_type: coupon.type === 'PERCENT' ? 'percent' : 'absolute',
+      discount_unit: coupon.type === 'PERCENT' ? 'percent' : 'currency',
       discount_value: Number(coupon.value),
     };
     await client.put(`/discounts/${r2oDiscountId}`, payload);
