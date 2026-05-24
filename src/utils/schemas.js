@@ -88,6 +88,7 @@ const menuItem = Joi.object({
   isOnline: Joi.boolean().default(true),
   showInSlider: Joi.boolean().default(false),
   sliderSortOrder: Joi.number().integer().default(0),
+  sortOrder: Joi.number().integer().default(0),
   r2oProductId: Joi.string().allow('', null),
   vatId: Joi.string().allow('', null),
   categoryId: Joi.string().required(),
@@ -166,6 +167,14 @@ const coupon = Joi.object({
   usageLimit: Joi.number().integer().min(1).allow(null),
 });
 
+const legalPage = Joi.object({
+  slug: Joi.string().lowercase().pattern(/^[a-z0-9-]+$/).required(),
+  title: Joi.string().min(2).max(120).required(),
+  content: Joi.string().allow('', null),
+  sortOrder: Joi.number().integer().default(0),
+  isActive: Joi.boolean().default(true),
+});
+
 module.exports = {
   login, register,
   profileUpdate, passwordChange, notifPrefs,
@@ -174,5 +183,5 @@ module.exports = {
   orderCreate, orderEdit, orderStatus, orderAccept, orderDecline,
   paypalCreate,
   forgotPassword, resetPassword,
-  deliveryZone, coupon,
+  deliveryZone, coupon, legalPage,
 };

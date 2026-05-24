@@ -14,7 +14,7 @@ async function listCategoriesWithItems({ online = null } = {}) {
           ...(online === true ? { isOnline: true } : {}),
           ...(online === false ? { isOnline: false } : {}),
         },
-        orderBy: { name: 'asc' },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         include: {
           tags: { include: { tag: true } },
           extras: { include: { extra: true } },
@@ -106,7 +106,7 @@ async function listMenuItems({ search, categoryId, isOnline } = {}) {
       ...(isOnline !== undefined ? { isOnline } : {}),
     },
     include: ITEM_INCLUDE,
-    orderBy: { name: 'asc' },
+    orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { name: 'asc' }],
   });
 }
 

@@ -12,6 +12,7 @@ router.use('/site-images', require('./siteImageRoutes'));
 router.use('/site-settings', require('./siteSettingRoutes'));
 router.use('/coupons', require('./couponRoutes'));
 router.use('/delivery-zones', require('./deliveryZoneRoutes'));
+router.use('/legal-pages', require('./legalPageRoutes'));
 
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 

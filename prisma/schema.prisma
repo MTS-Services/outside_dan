@@ -139,6 +139,7 @@ model MenuItem {
   isOnline    Boolean    @default(true)
   showInSlider Boolean   @default(false)
   sliderSortOrder Int    @default(0)
+  sortOrder   Int        @default(0)
   r2oProductId String?
   vatId        String?
   categoryId  String
@@ -214,8 +215,8 @@ model OrderItem {
   id         String   @id @default(uuid())
   orderId    String
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
   name       String
   price      Decimal  @db.Decimal(10, 2)
   quantity   Int
@@ -251,6 +252,17 @@ model SiteImage {
 model SiteSetting {
   key       String   @id
   value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model LegalPage {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  content   String?  @db.Text
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
