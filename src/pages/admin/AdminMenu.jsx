@@ -51,14 +51,15 @@ function AdminModal({ children, onBackdropClick }) {
   }, []);
 
   return createPortal(
-    <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true" data-lenis-prevent>
-      <div
-        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
-        onClick={onBackdropClick}
-        aria-hidden="true"
-      />
-      <div className="relative z-10 min-h-full overflow-y-auto overscroll-contain pointer-events-none">
-        <div className="flex min-h-full items-start justify-center p-4 sm:p-6 py-8 pointer-events-auto">
+    <div
+      className="admin-modal-scroll fixed inset-0 z-[200] overflow-y-auto overscroll-contain bg-black/75 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      data-lenis-prevent
+      onClick={(e) => { if (e.target === e.currentTarget) onBackdropClick(); }}
+    >
+      <div className="relative z-10 flex min-h-full items-start justify-center p-4 sm:p-6 py-8 pointer-events-none">
+        <div className="pointer-events-auto w-full max-w-2xl">
           {children}
         </div>
       </div>
