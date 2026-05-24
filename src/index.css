@@ -120,3 +120,198 @@
   scrollbar-width: thin;
   scrollbar-color: #D9AF47 transparent;
 }
+
+/* Shared rich text typography (admin editor + frontend) */
+.rich-text-body,
+.rich-text-editor-content {
+  @apply text-sm leading-relaxed;
+}
+
+.rich-text-body p,
+.rich-text-editor-content p,
+.rich-text-body ol,
+.rich-text-editor-content ol,
+.rich-text-body ul,
+.rich-text-editor-content ul,
+.rich-text-body pre,
+.rich-text-editor-content pre {
+  margin: 0;
+  padding: 0;
+}
+
+.rich-text-body h1,
+.rich-text-editor-content h1 {
+  @apply text-2xl font-semibold;
+  margin: 0;
+}
+
+.rich-text-body h2,
+.rich-text-editor-content h2 {
+  @apply text-xl font-semibold;
+  margin: 0;
+}
+
+.rich-text-body h3,
+.rich-text-editor-content h3 {
+  @apply text-lg font-semibold;
+  margin: 0;
+}
+
+.rich-text-body ul,
+.rich-text-editor-content ul {
+  @apply list-disc pl-5;
+}
+
+.rich-text-body ol,
+.rich-text-editor-content ol {
+  @apply list-decimal pl-5;
+}
+
+.rich-text-body li + li,
+.rich-text-editor-content li + li {
+  @apply mt-1;
+}
+
+.rich-text-body a,
+.rich-text-editor-content a {
+  @apply text-brand-400 underline;
+}
+
+.rich-text-body strong,
+.rich-text-body b,
+.rich-text-editor-content strong,
+.rich-text-editor-content b {
+  @apply text-white/80 font-semibold;
+}
+
+/* Rich text editor (admin) — TipTap */
+.rich-text-editor {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  @apply rounded-lg border border-white/10 bg-ink-700/70;
+}
+
+.rich-text-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  @apply border-b border-white/10 bg-ink-700/70 px-2 py-2;
+}
+
+.rich-text-heading-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.rich-text-toolbar-divider {
+  width: 1px;
+  height: 1.25rem;
+  @apply bg-white/10 mx-1;
+}
+
+.rich-text-toolbar-btn {
+  @apply min-w-[2rem] h-8 px-2 rounded-md text-sm text-white/70 hover:text-brand-400 hover:bg-white/10 transition;
+}
+
+.rich-text-toolbar-btn.is-active {
+  @apply text-brand-400 bg-brand-500/15;
+}
+
+.rich-text-editor .tiptap {
+  outline: none;
+}
+
+.rich-text-editor-content {
+  min-height: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  cursor: text;
+  caret-color: white;
+  @apply text-white px-4 py-3 outline-none;
+}
+
+.rich-text-editor-content:focus {
+  outline: none;
+}
+
+.rich-text-editor .ProseMirror {
+  outline: none;
+  min-height: 176px;
+}
+
+.rich-text-editor .ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-white/40;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Rich text content (frontend) */
+.rich-text-content {
+  @apply text-white/60;
+}
+
+/* Menu item cards */
+.menu-item-card {
+  @apply transition-all duration-300 hover:border-white/10 hover:shadow-glow;
+}
+
+.menu-card-desc-spacer,
+.menu-card-desc-wrap {
+  min-height: 6.75rem;
+}
+
+.menu-card-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+
+.menu-card-desc-wrap--fade::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2rem;
+  background: linear-gradient(to top, rgb(15 15 15 / 0.98), transparent);
+  pointer-events: none;
+}
+
+.menu-card-desc-wrap {
+  position: relative;
+}
+
+/* Admin product cards */
+.admin-product-card {
+  @apply transition-all duration-300 hover:border-white/10 hover:shadow-glow;
+}
+
+/* Legal pages (frontend) */
+.legal-page-content {
+  @apply text-white/70;
+}
+.legal-page-content h2 {
+  @apply font-display text-2xl text-white mt-8 mb-3 tracking-wide;
+}
+.legal-page-content h3 {
+  @apply font-display text-xl text-white mt-6 mb-2 tracking-wide;
+}
+.legal-page-content p + p {
+  @apply mt-3;
+}
+.legal-page-content ul,
+.legal-page-content ol {
+  @apply my-3 pl-5;
+}
+.legal-page-content ul {
+  @apply list-disc;
+}
+.legal-page-content ol {
+  @apply list-decimal;
+}

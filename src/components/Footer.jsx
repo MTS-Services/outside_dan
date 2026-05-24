@@ -15,9 +15,11 @@ const DEFAULT_HOURS = [
 
 export default function Footer() {
   const [s, setS] = useState({});
+  const [legalPages, setLegalPages] = useState([]);
 
   useEffect(() => {
     api.get('/site-settings').then((r) => setS(r.data || {})).catch(() => {});
+    api.get('/legal-pages').then((r) => setLegalPages(r.data || [])).catch(() => {});
   }, []);
 
   const name    = s.restaurant_name    || 'ROCKIN RUMBLE';
@@ -91,9 +93,12 @@ export default function Footer() {
       <div className="border-t border-white/5 py-5 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/35">
           <span>© {new Date().getFullYear()} {name} — Alle Rechte vorbehalten.</span>
-          <div className="flex gap-5">
-            <Link to="/impressum" onClick={() => scrollToTop()} className="hover:text-white/60 transition">Impressum</Link>
-            <Link to="/datenschutz" onClick={() => scrollToTop()} className="hover:text-white/60 transition">Datenschutz</Link>
+          <div className="flex flex-wrap gap-5 justify-center sm:justify-end">
+            {legalPages.map((p) => (
+              <Link key={p.slug} to={`/${p.slug}`} onClick={() => scrollToTop()} className="hover:text-white/60 transition">
+                {p.title}
+              </Link>
+            ))}
           </div>
         </div>
       </div>

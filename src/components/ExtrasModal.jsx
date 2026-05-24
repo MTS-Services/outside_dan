@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import Icon from './Icon';
+import HtmlContent from './HtmlContent';
+import { hasHtmlContent } from '../utils/html';
 
 const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
@@ -107,7 +109,6 @@ export default function ExtrasModal({ open, item, extras = [], onClose, onConfir
             )}
             <div className="flex-1 min-w-0">
               <h3 className="font-display text-xl tracking-wider truncate">{item.name}</h3>
-              <p className="text-xs text-white/50 line-clamp-2 mt-1">{item.description}</p>
             </div>
           </div>
           <button
@@ -121,6 +122,9 @@ export default function ExtrasModal({ open, item, extras = [], onClose, onConfir
 
         {/* Body */}
         <div className="flex-1 p-6 overflow-y-auto">
+          {hasHtmlContent(item.description) && (
+            <HtmlContent html={item.description} className="mb-6" />
+          )}
           {extras.length === 0 ? (
             <p className="text-center text-white/50 py-6 text-sm">Keine Extras für diesen Artikel verfügbar.</p>
           ) : (

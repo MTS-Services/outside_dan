@@ -5,6 +5,7 @@ import { useGSAP } from '@gsap/react';
 import api from '../api/client';
 import MenuItemCard from '../components/MenuItemCard';
 import Icon from '../components/Icon';
+import { stripHtml } from '../utils/html';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -50,7 +51,7 @@ export default function Menu() {
     if (query.trim()) {
       const q = query.toLowerCase();
       cats = cats
-        .map((c) => ({ ...c, items: c.items.filter((i) => i.name.toLowerCase().includes(q) || (i.description || '').toLowerCase().includes(q)) }))
+        .map((c) => ({ ...c, items: c.items.filter((i) => i.name.toLowerCase().includes(q) || stripHtml(i.description || '').toLowerCase().includes(q)) }))
         .filter((c) => c.items.length);
     }
     return cats;
@@ -148,7 +149,7 @@ export default function Menu() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 pb-24">
         {loading ? (
           <div className="text-center py-20 animate-fade-in">
             <div className="inline-block w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
@@ -174,11 +175,11 @@ export default function Menu() {
                 <span className="text-white/40 text-sm whitespace-nowrap">{cat.items.length}</span>
               </div>
               {cat.description && <p className="text-white/50 text-sm mb-5 -mt-2">{cat.description}</p>}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                 {cat.items.map((it, idx) => (
                   <div
                     key={it.id}
-                    className="menu-card-wrap"
+                    className="menu-card-wrap h-full"
                     style={{ animationDelay: `${idx * 60}ms`, opacity: 0, animation: `fade-in 0.45s ease forwards ${idx * 60}ms` }}
                   >
                     <MenuItemCard item={it} />

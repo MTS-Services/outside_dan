@@ -7,6 +7,8 @@ import api from '../api/client';
 import Icon from './Icon';
 import { useCart, useCartUI } from '../store/cart';
 import ExtrasModal from './ExtrasModal';
+import HtmlContent from './HtmlContent';
+import { hasHtmlContent } from '../utils/html';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -148,7 +150,9 @@ export default function FoodSlider() {
                 <h3 className="fs-title font-display text-4xl sm:text-7xl md:text-8xl lg:text-9xl leading-[0.9] tracking-wide">
                   {s.title}
                 </h3>
-                {s.desc && <p className="fs-desc hidden sm:block mt-6 text-lg md:text-xl text-white/70 max-w-xl leading-relaxed">{s.desc}</p>}
+                {hasHtmlContent(s.desc) && (
+                  <HtmlContent html={s.desc} className="fs-desc hidden sm:block mt-6 text-lg md:text-xl text-white/70 max-w-xl" />
+                )}
                 <div className="fs-price mt-5 md:mt-8 flex flex-wrap items-center gap-4 md:gap-6">
                   <span className="font-display text-3xl md:text-4xl text-brand-400">{s.price}</span>
                   <button
@@ -172,7 +176,7 @@ export default function FoodSlider() {
       {modalMounted && (
         <ExtrasModal
           open={modalOpen}
-          item={modalItem ? { id: modalItem.id, name: modalItem.title, price: modalItem.rawPrice, imageUrl: modalItem.imageUrl, extras: modalItem.extras } : null}
+          item={modalItem ? { id: modalItem.id, name: modalItem.title, price: modalItem.rawPrice, imageUrl: modalItem.imageUrl, description: modalItem.desc, extras: modalItem.extras } : null}
           extras={modalItem?.extras || []}
           onClose={() => setModalOpen(false)}
           onConfirm={handleConfirm}

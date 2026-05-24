@@ -30,6 +30,8 @@ import AdminSettings from './pages/admin/AdminSettings';
 import AdminProfile from './pages/admin/AdminProfile';
 import AdminDeliveryZones from './pages/admin/AdminDeliveryZones';
 import AdminCoupons from './pages/admin/AdminCoupons';
+import AdminLegalPages from './pages/admin/AdminLegalPages';
+import AGB from './pages/AGB';
 
 export default function App() {
   return (
@@ -49,6 +51,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/impressum" element={<Impressum />} />
         <Route path="/datenschutz" element={<Datenschutz />} />
+        <Route path="/agb" element={<AGB />} />
 
         {/* Customer dashboard */}
         <Route path="/account" element={<Profile />}>
@@ -74,6 +77,7 @@ export default function App() {
         <Route path="profile" element={<AdminProfile />} />
         <Route path="delivery-zones" element={<AdminDeliveryZones />} />
         <Route path="coupons" element={<AdminCoupons />} />
+        <Route path="legal-pages" element={<AdminLegalPages />} />
       </Route>
       {/* Legacy /admin/login alias → unified /login */}
       <Route path="/admin/login" element={<Navigate to="/login" replace />} />

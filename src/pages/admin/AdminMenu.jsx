@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
+import RichTextEditor from '../../components/RichTextEditor';
+import { hasHtmlContent, stripHtml } from '../../utils/html';
 
 const TABS = [
   { id: 'items',      label: 'Produkte' },
@@ -36,12 +39,41 @@ export default function AdminMenu() {
 
 function Spin() { return <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />; }
 
+function AdminModal({ children, onBackdropClick }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    if (window.__lenis) window.__lenis.stop();
+    return () => {
+      document.body.style.overflow = prev;
+      if (window.__lenis) window.__lenis.start();
+    };
+  }, []);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true" data-lenis-prevent>
+      <div
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onBackdropClick}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 min-h-full overflow-y-auto overscroll-contain pointer-events-none">
+        <div className="flex min-h-full items-start justify-center p-4 sm:p-6 py-8 pointer-events-auto">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ── ITEMS ─────────────────────────────────────────── */
 function ItemsTab() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | {item}
   const [busyId, setBusyId] = useState(null);
+  const [confirmItem, setConfirmItem] = useState(null);
   const [search, setSearch] = useState('');
   const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
 
@@ -60,8 +92,9 @@ function ItemsTab() {
     } catch (e) { toast.error(e.displayMessage || 'Fehler'); }
     finally { setBusyId(null); }
   }
-  async function remove(it) {
-    if (!window.confirm(`"${it.name}" löschen?`)) return;
+  async function confirmDelete() {
+    const it = confirmItem;
+    setConfirmItem(null);
     setBusyId(it.id);
     try { await api.delete(`/menu/admin/items/${it.id}`); toast.success('Gelöscht'); load(); }
     catch (e) { toast.error(e.displayMessage || 'Fehler'); }
@@ -83,31 +116,126 @@ function ItemsTab() {
       />
       {loading ? (
         <div className="flex justify-center items-center py-20"><Spin /></div>
+      ) : rows.filter((it) => it.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+        <div className="rounded-2xl border border-white/5 bg-white/[0.02] py-16 text-center text-white/40 text-sm">
+          {search ? 'Keine Produkte passen zur Suche.' : 'Noch keine Produkte – erstelle das erste.'}
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 items-stretch">
           {rows.filter((it) => it.name.toLowerCase().includes(search.toLowerCase())).map((it) => (
-            <div key={it.id} className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
-              <div className="aspect-[4/3] bg-ink-800 relative">
-                {it.imageUrl ? <img src={imgSrc(it.imageUrl)} alt={it.name} className="w-full h-full object-cover" /> : null}
-                <span className={`absolute top-2 left-2 chip ${it.isAvailable ? 'bg-emerald-500/80' : 'bg-red-500/80'}`}>
-                  {it.isAvailable ? 'Aktiv' : 'Deaktiviert'}
-                </span>
-
-              </div>
-              <div className="p-3">
-                <div className="font-display tracking-wide text-lg truncate">{it.name}</div>
-                <div className="text-xs text-white/50">{it.category?.name} • € {Number(it.price).toFixed(2)}</div>
-                <div className="flex gap-1.5 mt-3">
-                  <button onClick={() => setEditing(it)} className="flex-1 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold">Bearbeiten</button>
-                  <button disabled={busyId === it.id} onClick={() => toggle(it)} className="px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold disabled:opacity-40">{it.isAvailable ? 'Deaktivieren' : 'Aktivieren'}</button>
-                  <button disabled={busyId === it.id} onClick={() => remove(it)} className="px-2 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-semibold disabled:opacity-40">✕</button>
-                </div>
-              </div>
-            </div>
+            <AdminProductCard
+              key={it.id}
+              item={it}
+              busy={busyId === it.id}
+              imgSrc={imgSrc}
+              onEdit={() => setEditing(it)}
+              onToggle={() => toggle(it)}
+              onDelete={() => setConfirmItem(it)}
+            />
           ))}
         </div>
       )}
       {editing !== null && <ItemEditor item={editing.id ? editing : null} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+
+      {confirmItem && (
+        <AdminModal onBackdropClick={() => setConfirmItem(null)}>
+          <div className="w-full max-w-sm bg-ink-800 border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5 text-red-400"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
+              </div>
+              <div>
+                <p className="font-semibold text-white">Produkt löschen</p>
+                <p className="text-sm text-white/50 mt-0.5">„<span className="text-white/80">{confirmItem.name}</span>" wird dauerhaft gelöscht.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmItem(null)} className="btn-ghost flex-1 justify-center">Abbrechen</button>
+              <button onClick={confirmDelete} className="btn-danger flex-1 justify-center">Löschen</button>
+            </div>
+          </div>
+        </AdminModal>
+      )}
+    </div>
+  );
+}
+
+function AdminProductCard({ item, busy, imgSrc, onEdit, onToggle, onDelete }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const descPreview = stripHtml(item.description || '');
+  const showImage = item.imageUrl && !imgFailed;
+
+  return (
+    <div className="admin-product-card card flex flex-col h-full overflow-hidden">
+      <div className="relative aspect-[4/3] bg-ink-700 shrink-0 overflow-hidden">
+        {showImage ? (
+          <img
+            src={imgSrc(item.imageUrl)}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-ink-700 to-ink-800 text-white/25">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 15l-5-5L5 21" />
+            </svg>
+            <span className="text-xs font-medium">Kein Bild</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+        <span className={`absolute top-3 left-3 chip text-xs ${item.isAvailable ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+          {item.isAvailable ? 'Aktiv' : 'Inaktiv'}
+        </span>
+        <span className="absolute bottom-3 right-3 bg-brand-500 text-ink-900 font-bold px-2.5 py-1 rounded-full text-xs shadow-glow">
+          € {Number(item.price).toFixed(2)}
+        </span>
+      </div>
+
+      <div className="flex flex-col flex-1 p-4 min-h-0">
+        <h3 className="font-display text-lg tracking-wide leading-tight line-clamp-2 min-h-[2.75rem]" title={item.name}>
+          {item.name}
+        </h3>
+        {item.category?.name && (
+          <p className="text-xs text-brand-400/80 font-medium mt-1 uppercase tracking-wide">
+            #{item.sortOrder ?? 0} · {item.category.name}
+          </p>
+        )}
+        {descPreview ? (
+          <p className="text-xs text-white/45 mt-2 line-clamp-2 leading-relaxed flex-1">{descPreview}</p>
+        ) : (
+          <div className="flex-1" />
+        )}
+      </div>
+
+      <div className="px-4 pb-4 pt-3 border-t border-white/5 shrink-0">
+        <div className="flex gap-2">
+          <button
+            onClick={onEdit}
+            className="flex-1 px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition"
+          >
+            Bearbeiten
+          </button>
+          <button
+            disabled={busy}
+            onClick={onToggle}
+            title={item.isAvailable ? 'Deaktivieren' : 'Aktivieren'}
+            className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 text-white text-xs font-semibold disabled:opacity-40 transition whitespace-nowrap"
+          >
+            {item.isAvailable ? 'Deaktivieren' : 'Aktivieren'}
+          </button>
+          <button
+            disabled={busy}
+            onClick={onDelete}
+            title="Löschen"
+            className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-semibold disabled:opacity-40 transition"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -124,6 +252,7 @@ function ItemEditor({ item, onClose, onSaved }) {
     isVegetarian: item?.isVegetarian || false,
     isSpicy: item?.isSpicy || false,
     vatId: item?.vatId || '',
+    sortOrder: item?.sortOrder ?? 0,
     tagIds: (item?.tags || []).map((t) => (t.tag?.id || t.tagId || t.id)),
     extraIds: (item?.extras || []).map((e) => (e.extra?.id || e.extraId || e.id)),
   });
@@ -180,7 +309,12 @@ function ItemEditor({ item, onClose, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, price: Number(form.price) };
+      const payload = {
+        ...form,
+        price: Number(form.price),
+        sortOrder: Number(form.sortOrder) || 0,
+        description: hasHtmlContent(form.description) ? form.description : '',
+      };
       if (item) await api.put(`/menu/admin/items/${item.id}`, payload);
       else      await api.post('/menu/admin/items', payload);
       toast.success(item ? 'Produkt aktualisiert' : 'Produkt erstellt');
@@ -198,8 +332,8 @@ function ItemEditor({ item, onClose, onSaved }) {
   const selectedExtras = extras.filter((e) => form.extraIds.includes(e.id));
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur p-4 overflow-y-auto">
-      <form onSubmit={save} className="w-full max-w-2xl bg-ink-900 border border-white/10 rounded-2xl p-6 space-y-4 my-8">
+    <AdminModal onBackdropClick={onClose}>
+      <form onSubmit={save} className="relative z-10 w-full max-w-2xl overflow-visible bg-ink-900 border border-white/10 rounded-2xl p-6 space-y-4 shadow-2xl">
         <h3 className="font-display text-2xl">{item ? 'Produkt bearbeiten' : 'Neues Produkt'}</h3>
 
         {/* Image drop zone */}
@@ -226,12 +360,34 @@ function ItemEditor({ item, onClose, onSaved }) {
           <Field label="Name *"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
           <Field label="Preis (€) *"><input className="input" type="number" step="0.01" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
         </div>
-        <Field label="Beschreibung"><textarea rows="2" className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
-        <Field label="Kategorie *">
-          <select className="input" required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
-            <option value="">Kategorie wählen</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Reihenfolge (1, 2, 3…) *">
+            <input
+              className="input"
+              type="number"
+              step="1"
+              min="0"
+              required
+              value={form.sortOrder}
+              onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+              placeholder="Position in der Kategorie"
+            />
+          </Field>
+          <Field label="Kategorie *">
+            <select className="input" required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+              <option value="">Kategorie wählen</option>
+              {cats.map((c) => <option key={c.id} value={c.id}>{c.sortOrder}. {c.name}</option>)}
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Beschreibung">
+          <RichTextEditor
+            key={item?.id ?? 'new'}
+            value={form.description}
+            onChange={(description) => setForm({ ...form, description })}
+            placeholder="Zutaten, Besonderheiten, Allergene…"
+          />
         </Field>
 
         {vatRates.length > 0 && (
@@ -308,27 +464,30 @@ function ItemEditor({ item, onClose, onSaved }) {
         </div>
       </form>
 
-      {/* URL modal */}
-      {urlModal && (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-ink-800 border border-white/10 rounded-2xl p-6 space-y-4 shadow-2xl">
-            <p className="font-semibold text-white">Bild-URL einfügen</p>
-            <input
-              autoFocus
-              className="input"
-              placeholder="https://…"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), confirmUrlUpload())}
-            />
-            <div className="flex gap-2">
-              <button type="button" onClick={() => { setUrlModal(false); setUrlInput(''); }} className="btn-ghost flex-1 justify-center">Abbrechen</button>
-              <button type="button" onClick={confirmUrlUpload} className="btn-primary flex-1 justify-center">Laden</button>
+      {urlModal && createPortal(
+        <div className="fixed inset-0 z-[210]" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setUrlModal(false); setUrlInput(''); }} aria-hidden="true" />
+          <div className="fixed inset-0 grid place-items-center p-4">
+            <div className="w-full max-w-sm bg-ink-800 border border-white/10 rounded-2xl p-6 space-y-4 shadow-2xl">
+              <p className="font-semibold text-white">Bild-URL einfügen</p>
+              <input
+                autoFocus
+                className="input"
+                placeholder="https://…"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), confirmUrlUpload())}
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setUrlModal(false); setUrlInput(''); }} className="btn-ghost flex-1 justify-center">Abbrechen</button>
+                <button type="button" onClick={confirmUrlUpload} className="btn-primary flex-1 justify-center">Laden</button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </AdminModal>
   );
 }
 
@@ -345,6 +504,7 @@ function Check({ label, checked, onChange }) {
 /* ── CATEGORIES ───────────────────────────────────── */
 function CategoriesTab() {
   return <CrudList endpoint="/menu/admin/categories" title="Kategorien" autoSlug fields={[
+    { key: 'sortOrder', label: 'Reihenfolge (1, 2, 3…)', type: 'number', step: '1', default: 0, placeholder: '1' },
     { key: 'name', label: 'Name', required: true },
   ]} />;
 }
@@ -594,7 +754,7 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
     try {
       const body = {};
       fields.forEach((f) => {
-        if (f.type === 'number') body[f.key] = form[f.key] === '' ? undefined : Number(form[f.key]);
+        if (f.type === 'number') body[f.key] = form[f.key] === '' ? (f.default ?? 0) : Number(form[f.key]);
         else if (f.type === 'checkbox') body[f.key] = !!form[f.key];
         else body[f.key] = form[f.key] || undefined;
       });
@@ -629,21 +789,26 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
           {rows.length === 0 ? <div className="p-6 text-white/40 text-center text-sm">Keine Einträge</div> :
             rows.map((r) => (
               <div key={r.id} className="p-4 flex items-center gap-3">
+                {fields.some((f) => f.key === 'sortOrder') && (
+                  <span className="w-9 h-9 rounded-lg bg-brand-500/15 text-brand-400 text-sm font-bold grid place-items-center shrink-0 tabular-nums">
+                    {r.sortOrder ?? 0}
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{r.icon ? `${r.icon} ` : ''}{r.name}</div>
                   <div className="text-xs text-white/50 truncate">
-                    {fields.filter((f) => f.key !== 'name' && r[f.key] != null && r[f.key] !== '' && r[f.key] !== false).map((f) => `${f.label}: ${r[f.key]}`).join(' • ')}
+                    {fields.filter((f) => f.key !== 'name' && f.key !== 'sortOrder' && r[f.key] != null && r[f.key] !== '' && r[f.key] !== false).map((f) => `${f.label}: ${r[f.key]}`).join(' • ')}
                   </div>
                 </div>
-                <button onClick={() => setEditing(r)} className="px-3 py-1.5 rounded-lg bg-white/5 text-xs font-semibold">Bearbeiten</button>
-                <button disabled={busyId === r.id} onClick={() => remove(r)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-semibold disabled:opacity-40">✕</button>
+                <button onClick={() => setEditing(r)} className="px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/15 text-white text-xs font-semibold">Bearbeiten</button>
+                <button disabled={busyId === r.id} onClick={() => remove(r)} className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-semibold disabled:opacity-40">✕</button>
               </div>
             ))}
         </div>
       )}
       {editing && <SimpleEditor row={editing.id ? editing : null} fields={fields} title={title} onClose={() => setEditing(null)} onSave={save} />}
       {confirmRow && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur-sm p-4">
+        <AdminModal onBackdropClick={() => setConfirmRow(null)}>
           <div className="w-full max-w-sm bg-ink-800 border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
@@ -659,7 +824,7 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
               <button onClick={confirmDelete} className="btn-danger flex-1 justify-center">Löschen</button>
             </div>
           </div>
-        </div>
+        </AdminModal>
       )}
     </div>
   );
@@ -668,7 +833,12 @@ function CrudList({ endpoint, title, fields, autoSlug }) {
 function SimpleEditor({ row, fields, title, onClose, onSave }) {
   const [form, setForm] = useState(() => {
     const f = {};
-    fields.forEach((fld) => { f[fld.key] = row?.[fld.key] ?? (fld.type === 'checkbox' ? true : ''); });
+    fields.forEach((fld) => {
+      if (row?.[fld.key] != null && row[fld.key] !== '') f[fld.key] = row[fld.key];
+      else if (fld.type === 'checkbox') f[fld.key] = fld.default ?? true;
+      else if (fld.type === 'number') f[fld.key] = fld.default ?? 0;
+      else f[fld.key] = '';
+    });
     return f;
   });
   const [saving, setSaving] = useState(false);
@@ -679,8 +849,8 @@ function SimpleEditor({ row, fields, title, onClose, onSave }) {
     setSaving(false);
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur p-4">
-      <form onSubmit={submit} className="w-full max-w-md bg-ink-900 border border-white/10 rounded-2xl p-6 space-y-4">
+    <AdminModal onBackdropClick={onClose}>
+      <form onSubmit={submit} className="w-full max-w-md bg-ink-900 border border-white/10 rounded-2xl p-6 space-y-4 shadow-2xl">
         <h3 className="font-display text-2xl">{row ? `${title || ''} bearbeiten` : `${title || ''} hinzufügen`}</h3>
         {fields.map((f) => (
           <label key={f.key} className="block">
@@ -692,6 +862,7 @@ function SimpleEditor({ row, fields, title, onClose, onSave }) {
                 className="input"
                 type={f.type || 'text'}
                 step={f.step}
+                min={f.type === 'number' ? '0' : undefined}
                 placeholder={f.placeholder}
                 required={f.required}
                 value={form[f.key] ?? ''}
@@ -705,7 +876,7 @@ function SimpleEditor({ row, fields, title, onClose, onSave }) {
           <button disabled={saving} className="btn-primary flex-1 justify-center">{saving ? <Spin /> : 'Speichern'}</button>
         </div>
       </form>
-    </div>
+    </AdminModal>
   );
 }
 
