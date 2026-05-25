@@ -11,6 +11,7 @@ const config = require('./config');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middlewares/error');
 const { initSocket } = require('./sockets');
+const siteSettingService = require('./services/siteSettingService');
 
 const app = express();
 
@@ -45,7 +46,13 @@ app.use(errorHandler);
 const server = http.createServer(app);
 initSocket(server);
 
-server.listen(config.port, () => {
+server.listen(config.port, async () => {
+  try {
+    await siteSettingService.ensureDefaults();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Site settings defaults failed:', err.message);
+  }
   // eslint-disable-next-line no-console
   console.log(`API ready on http://localhost:${config.port}`);
 });

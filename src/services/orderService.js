@@ -6,6 +6,9 @@ const printer = require('./printerService');
 const push = require('./pushService');
 const email = require('./emailService');
 const config = require('../config');
+const siteSettings = require('./siteSettingService');
+
+const ORDERS_CLOSED_MESSAGE = 'Wir nehmen derzeit keine Bestellungen entgegen.';
 
 const DELIVERY_FEE = 2.5;
 const TAX_RATE = 0;
@@ -86,6 +89,10 @@ async function _resolveCart(items) {
 }
 
 async function createOrder(input, userId = null) {
+  if (!(await siteSettings.areOrdersAccepted())) {
+    throw new ApiError(503, ORDERS_CLOSED_MESSAGE);
+  }
+
   const { orderItemsCreate, subtotal } = await _resolveCart(input.items);
 
   const deliveryFee = await resolveDeliveryFee(input.postalCode);
