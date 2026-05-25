@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../api/client';
 import { useCart } from '../store/cart';
 import { useAuth } from '../store/auth';
+import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import { subscribeToPush, isPushSubscribed } from '../api/push';
 import PhoneInput from '../components/PhoneInput';
 import { findCountry } from '../data/countries';
@@ -48,6 +49,7 @@ function PayOption({ form, setForm, value, label, disabled }) {
 export default function Checkout() {
   const { items, subtotal, clear } = useCart();
   const { user, token } = useAuth();
+  const { canOrder, loaded: settingsLoaded } = useOrderGuard();
   const [form, setForm] = useState(initial);
   const [submitting, setSubmitting] = useState(false);
 
@@ -200,6 +202,7 @@ export default function Checkout() {
   }
 
   function validateForm() {
+    if (!canOrder) { toast.error(ORDERS_CLOSED_MESSAGE); return false; }
     if (!items.length) { toast.error('Warenkorb ist leer'); return false; }
     if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
     if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
@@ -294,6 +297,16 @@ export default function Checkout() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <h1 className="text-4xl mb-4">Dein Warenkorb ist leer</h1>
+        <button className="btn-primary" onClick={() => navigate('/menu')}>Zur Speisekarte</button>
+      </div>
+    );
+  }
+
+  if (settingsLoaded && !canOrder) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
+        <h1 className="text-4xl mb-4">Bestellungen pausiert</h1>
+        <p className="text-white/60 mb-8">{ORDERS_CLOSED_MESSAGE}</p>
         <button className="btn-primary" onClick={() => navigate('/menu')}>Zur Speisekarte</button>
       </div>
     );

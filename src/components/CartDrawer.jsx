@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useCart, useCartUI } from '../store/cart';
+import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import Icon from './Icon';
 
 const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
@@ -14,6 +15,7 @@ export default function CartDrawer() {
   const modifyExtraQty = useCart((s) => s.modifyExtraQty);
   const remove = useCart((s) => s.remove);
   const subtotal = useCart((s) => s.subtotal());
+  const { canOrder } = useOrderGuard();
 
   const backdropRef = useRef(null);
   const panelRef = useRef(null);
@@ -199,13 +201,26 @@ export default function CartDrawer() {
               <span className="font-semibold text-white">€{subtotal.toFixed(2)}</span>
             </div>
             <p className="text-[11px] text-white/40">Versand & Steuern werden an der Kasse berechnet.</p>
-            <Link
-              to="/checkout"
-              onClick={close}
-              className="btn-primary w-full justify-center py-3 text-base"
-            >
-              Zur Kasse →
-            </Link>
+            {!canOrder && (
+              <p className="text-xs text-amber-400/90">{ORDERS_CLOSED_MESSAGE}</p>
+            )}
+            {canOrder ? (
+              <Link
+                to="/checkout"
+                onClick={close}
+                className="btn-primary w-full justify-center py-3 text-base"
+              >
+                Zur Kasse →
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="btn-primary w-full justify-center py-3 text-base opacity-50 cursor-not-allowed"
+              >
+                Zur Kasse →
+              </button>
+            )}
             <Link
               to="/cart"
               onClick={close}

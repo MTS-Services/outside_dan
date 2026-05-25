@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCart, useCartUI } from '../store/cart';
+import { useOrderGuard } from '../store/siteSettings';
 import ExtrasModal from './ExtrasModal';
 import HtmlContent from './HtmlContent';
 import { hasHtmlContent, stripHtml } from '../utils/html';
@@ -34,6 +35,7 @@ export default function MenuItemCard({ item }) {
   const add = useCart((s) => s.add);
   const cartItems = useCart((s) => s.items);
   const openCart = useCartUI((s) => s.openDrawer);
+  const { canOrder, guardOrder } = useOrderGuard();
   const alreadyInCart = cartItems.some((i) => i.menuItemId === item.id);
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -47,11 +49,13 @@ export default function MenuItemCard({ item }) {
   const hasLongDescription = stripHtml(item.description || '').length > DESC_PREVIEW_CHARS;
 
   const openModal = () => {
+    if (!guardOrder()) return;
     setMounted(true);
     setOpen(true);
   };
 
   const addToCart = (selectedExtras = [], qty = 1, notes = '') => {
+    if (!guardOrder()) return;
     add(
       { id: item.id, name: item.name, price: Number(item.price), imageUrl: item.imageUrl },
       selectedExtras,
@@ -119,10 +123,16 @@ export default function MenuItemCard({ item }) {
       <div className="px-5 pb-5 pt-4 mt-auto border-t border-white/5 shrink-0">
         <button
           onClick={openModal}
-          disabled={item.isAvailable === false || alreadyInCart}
+          disabled={item.isAvailable === false || alreadyInCart || !canOrder}
           className="btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {item.isAvailable === false ? 'Nicht verfügbar' : alreadyInCart ? 'Bereits im Warenkorb' : 'In den Warenkorb'}
+          {!canOrder
+            ? 'Bestellungen pausiert'
+            : item.isAvailable === false
+              ? 'Nicht verfügbar'
+              : alreadyInCart
+                ? 'Bereits im Warenkorb'
+                : 'In den Warenkorb'}
         </button>
       </div>
 

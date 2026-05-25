@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import api from '../api/client';
 import Icon from './Icon';
 import { useCart, useCartUI } from '../store/cart';
+import { useOrderGuard } from '../store/siteSettings';
 import ExtrasModal from './ExtrasModal';
 import HtmlContent from './HtmlContent';
 import { hasHtmlContent } from '../utils/html';
@@ -22,18 +23,20 @@ export default function FoodSlider() {
   const [slides, setSlides] = useState([]);
   const addToCart = useCart((s) => s.add);
   const openCartDrawer = useCartUI((s) => s.openDrawer);
+  const { canOrder, guardOrder } = useOrderGuard();
   const [modalItem, setModalItem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMounted, setModalMounted] = useState(false);
 
   const handleAddClick = (s) => {
+    if (!guardOrder()) return;
     setModalItem(s);
     setModalMounted(true);
     setModalOpen(true);
   };
 
   const handleConfirm = (selectedExtras = [], qty = 1, notes = '') => {
-    if (!modalItem) return;
+    if (!modalItem || !guardOrder()) return;
     addToCart(
       { id: modalItem.id, name: modalItem.title, price: modalItem.rawPrice, imageUrl: modalItem.imageUrl },
       selectedExtras,
@@ -157,7 +160,8 @@ export default function FoodSlider() {
                   <span className="font-display text-3xl md:text-4xl text-brand-400">{s.price}</span>
                   <button
                     onClick={() => handleAddClick(s)}
-                    className="btn-primary px-5 py-2.5 md:px-7 md:py-3 text-sm md:text-base flex items-center gap-2"
+                    disabled={!canOrder}
+                    className="btn-primary px-5 py-2.5 md:px-7 md:py-3 text-sm md:text-base flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Icon name="cart" className="w-4 h-4 md:w-5 md:h-5" />
                     In den Warenkorb

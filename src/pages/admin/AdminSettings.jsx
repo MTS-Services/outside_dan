@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
+import { useSiteSettings } from '../../store/siteSettings';
 
 const DEFAULT_HOURS = [
   { day: 'Montag',     times: ['12:00 – 14:30', '17:00 – 22:00'], closed: false },
@@ -19,9 +20,15 @@ const DEFAULT = {
   restaurant_facebook: '',
   restaurant_instagram: '',
   maps_url: '',
+  orders_accepted: true,
+  news_banner_enabled: false,
+  news_banner_text: '',
 };
 
+const BOOL_KEYS = ['orders_accepted', 'news_banner_enabled'];
+
 export default function AdminSettings() {
+  const loadSiteSettings = useSiteSettings((s) => s.load);
   const [form, setForm] = useState(DEFAULT);
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [loading, setLoading] = useState(true);
@@ -34,9 +41,12 @@ export default function AdminSettings() {
         ...f,
         ...Object.fromEntries(
           Object.entries(data)
-            .filter(([k]) => k !== 'opening_hours')
+            .filter(([k]) => k !== 'opening_hours' && !BOOL_KEYS.includes(k))
             .map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
         ),
+        orders_accepted: data.orders_accepted !== false && data.orders_accepted !== 'false',
+        news_banner_enabled: data.news_banner_enabled === true || data.news_banner_enabled === 'true',
+        news_banner_text: String(data.news_banner_text || ''),
       }));
       if (data.opening_hours) {
         try {
@@ -65,12 +75,40 @@ export default function AdminSettings() {
     setHours((h) => h.filter((_, idx) => idx !== i));
   }
 
+  const setBool = (k) => async (e) => {
+    const checked = e.target.checked;
+    setForm((f) => ({ ...f, [k]: checked }));
+    try {
+      const payload = { [k]: checked };
+      if (k === 'news_banner_enabled') {
+        payload.news_banner_text = form.news_banner_text || '';
+      }
+      await api.put('/site-settings', payload);
+      await loadSiteSettings();
+      if (k === 'orders_accepted') {
+        toast.success(checked ? 'Bestellungen aktiviert und gespeichert' : 'Bestellungen pausiert und gespeichert');
+      } else if (k === 'news_banner_enabled') {
+        toast.success(checked ? 'News-Banner aktiviert' : 'News-Banner deaktiviert');
+      }
+    } catch {
+      setForm((f) => ({ ...f, [k]: !checked }));
+      toast.error('Fehler beim Speichern in der Datenbank');
+    }
+  };
+
   async function save(e) {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/site-settings', { ...form, opening_hours: hours });
-      toast.success('Einstellungen gespeichert');
+      await api.put('/site-settings', {
+        ...form,
+        opening_hours: hours,
+        orders_accepted: !!form.orders_accepted,
+        news_banner_enabled: !!form.news_banner_enabled,
+        news_banner_text: form.news_banner_text || '',
+      });
+      await loadSiteSettings();
+      toast.success('Einstellungen in der Datenbank gespeichert');
     } catch {
       toast.error('Fehler beim Speichern');
     } finally {
@@ -84,6 +122,71 @@ export default function AdminSettings() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <h1 className="font-display text-2xl sm:text-3xl mb-6">Einstellungen</h1>
       <form onSubmit={save} className="space-y-6">
+
+        {/* Orders */}
+        <div className="card p-6 space-y-4">
+          <h2 className="font-display text-xl text-brand-400">Bestellungen</h2>
+          <p className="text-sm text-white/50">
+            Wenn deaktiviert, können Kunden nichts in den Warenkorb legen und keine Bestellung aufgeben.
+          </p>
+          <label className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
+            form.orders_accepted ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-red-500/30 bg-red-500/10'
+          }`}>
+            <input
+              type="checkbox"
+              checked={!!form.orders_accepted}
+              onChange={setBool('orders_accepted')}
+              className="mt-1 w-5 h-5 accent-brand-500 shrink-0"
+            />
+            <div>
+              <span className="font-semibold text-white block">
+                {form.orders_accepted ? 'Bestellungen werden angenommen' : 'Bestellungen pausiert'}
+              </span>
+              <span className="text-sm text-white/50 mt-1 block">
+                {form.orders_accepted
+                  ? 'Kunden können normal bestellen.'
+                  : 'Kunden sehen: „Wir nehmen derzeit keine Bestellungen entgegen.“'}
+              </span>
+            </div>
+          </label>
+        </div>
+
+        {/* News banner */}
+        <div className="card p-6 space-y-4">
+          <h2 className="font-display text-xl text-brand-400">News-Banner (Startseite)</h2>
+          <p className="text-sm text-white/50">
+            Lauftext oben auf der Startseite — z. B. Feiertagsschließung, Party, Pizza-Special.
+          </p>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!form.news_banner_enabled}
+              onChange={setBool('news_banner_enabled')}
+              className="w-5 h-5 accent-brand-500"
+            />
+            <span className="text-sm text-white/80">Banner auf der Startseite anzeigen</span>
+          </label>
+          <label className="block">
+            <span className="label">Banner-Text</span>
+            <textarea
+              className="input min-h-[88px] resize-y"
+              value={form.news_banner_text}
+              onChange={set('news_banner_text')}
+              onBlur={async () => {
+                if (!form.news_banner_enabled) return;
+                try {
+                  await api.put('/site-settings', { news_banner_text: form.news_banner_text || '' });
+                  await loadSiteSettings();
+                } catch {
+                  toast.error('Banner-Text konnte nicht gespeichert werden');
+                }
+              }}
+              placeholder={'z. B. Am 24.12. geschlossen — frohe Feiertage!\nPizza-Special: 2 für 1 jeden Freitag'}
+              disabled={!form.news_banner_enabled}
+            />
+            <p className="text-xs text-white/40 mt-1">Mehrere Zeilen werden mit — verbunden. Text wird beim Verlassen des Feldes gespeichert.</p>
+          </label>
+        </div>
 
         {/* Contact info */}
         <div className="card p-6 space-y-4">
