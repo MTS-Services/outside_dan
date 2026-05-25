@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useCart } from '../store/cart';
+import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import Icon from '../components/Icon';
 
 export default function Cart() {
   const { items, setQty, remove, subtotal } = useCart();
+  const { canOrder } = useOrderGuard();
   const sub = subtotal();
   const fee = items.length ? 2.5 : 0;
   const total = sub + fee;
@@ -62,9 +65,22 @@ export default function Cart() {
             <Row label="Lieferung" value={`€ ${fee.toFixed(2)}`} />
             <div className="border-t border-white/10 my-3" />
             <Row label="Gesamt" value={`€ ${total.toFixed(2)}`} bold />
-            <Link to="/checkout" className="btn-primary w-full mt-6 justify-center">
-              Zur Kasse <Icon name="arrowRight" className="w-4 h-4" />
-            </Link>
+            {!canOrder && (
+              <p className="text-sm text-amber-400/90 mt-4">{ORDERS_CLOSED_MESSAGE}</p>
+            )}
+            {canOrder ? (
+              <Link to="/checkout" className="btn-primary w-full mt-6 justify-center">
+                Zur Kasse <Icon name="arrowRight" className="w-4 h-4" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => toast.error(ORDERS_CLOSED_MESSAGE)}
+                className="btn-primary w-full mt-6 justify-center opacity-50 cursor-not-allowed"
+              >
+                Zur Kasse <Icon name="arrowRight" className="w-4 h-4" />
+              </button>
+            )}
             <Link to="/menu" className="btn-ghost w-full mt-2 justify-center">Mehr hinzufügen</Link>
           </aside>
         </div>
