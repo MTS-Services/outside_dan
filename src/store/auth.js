@@ -15,6 +15,11 @@ export const useAuth = create(
         set({ user: null, token: null });
       },
     }),
-    { name: 'rr-auth' },
+    {
+      name: 'rr-auth',
+      onRehydrateStorage: () => (state) => {
+        if (state?.token) localStorage.setItem('token', state.token);
+      },
+    },
   ),
 );

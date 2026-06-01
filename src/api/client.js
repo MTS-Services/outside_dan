@@ -1,11 +1,16 @@
 import axios from 'axios';
+import { useAuth } from '../store/auth';
 
 const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL + '/api' : '/api';
 
 const api = axios.create({ baseURL });
 
+function getAuthToken() {
+  return localStorage.getItem('token') || useAuth.getState().token || null;
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

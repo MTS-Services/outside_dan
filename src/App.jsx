@@ -31,6 +31,7 @@ import AdminProfile from './pages/admin/AdminProfile';
 import AdminDeliveryZones from './pages/admin/AdminDeliveryZones';
 import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminLegalPages from './pages/admin/AdminLegalPages';
+import AdminR2O from './pages/admin/AdminR2O';
 import AGB from './pages/AGB';
 
 export default function App() {
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="delivery-zones" element={<AdminDeliveryZones />} />
         <Route path="coupons" element={<AdminCoupons />} />
         <Route path="legal-pages" element={<AdminLegalPages />} />
+        <Route path="r2o" element={<AdminR2O />} />
       </Route>
       {/* Legacy /admin/login alias → unified /login */}
       <Route path="/admin/login" element={<Navigate to="/login" replace />} />
