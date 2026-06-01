@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
 import { useSiteSettings } from '../../store/siteSettings';
+import OrdersAcceptedToggle from '../../components/OrdersAcceptedToggle';
 
 const DEFAULT_HOURS = [
   { day: 'Montag',     times: ['12:00 – 14:30', '17:00 – 22:00'], closed: false },
@@ -100,10 +101,10 @@ export default function AdminSettings() {
     e.preventDefault();
     setSaving(true);
     try {
+      const { orders_accepted: _ignored, ...rest } = form;
       await api.put('/site-settings', {
-        ...form,
+        ...rest,
         opening_hours: hours,
-        orders_accepted: !!form.orders_accepted,
         news_banner_enabled: !!form.news_banner_enabled,
         news_banner_text: form.news_banner_text || '',
       });
@@ -124,32 +125,7 @@ export default function AdminSettings() {
       <form onSubmit={save} className="space-y-6">
 
         {/* Orders */}
-        <div className="card p-6 space-y-4">
-          <h2 className="font-display text-xl text-brand-400">Bestellungen</h2>
-          <p className="text-sm text-white/50">
-            Wenn deaktiviert, können Kunden nichts in den Warenkorb legen und keine Bestellung aufgeben.
-          </p>
-          <label className={`flex items-start gap-4 p-4 rounded-xl border transition cursor-pointer ${
-            form.orders_accepted ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-red-500/30 bg-red-500/10'
-          }`}>
-            <input
-              type="checkbox"
-              checked={!!form.orders_accepted}
-              onChange={setBool('orders_accepted')}
-              className="mt-1 w-5 h-5 accent-brand-500 shrink-0"
-            />
-            <div>
-              <span className="font-semibold text-white block">
-                {form.orders_accepted ? 'Bestellungen werden angenommen' : 'Bestellungen pausiert'}
-              </span>
-              <span className="text-sm text-white/50 mt-1 block">
-                {form.orders_accepted
-                  ? 'Kunden können normal bestellen.'
-                  : 'Kunden sehen: „Wir nehmen derzeit keine Bestellungen entgegen.“'}
-              </span>
-            </div>
-          </label>
-        </div>
+        <OrdersAcceptedToggle />
 
         {/* News banner */}
         <div className="card p-6 space-y-4">
