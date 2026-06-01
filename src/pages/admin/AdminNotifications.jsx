@@ -17,7 +17,20 @@ export default function AdminNotifications() {
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
 
-  useEffect(() => { isPushSubscribed().then(setPushOn); }, []);
+  useEffect(() => {
+    async function syncPush() {
+      const local = await isPushSubscribed();
+      setPushOn(local);
+      if (local) {
+        try {
+          await subscribeToPush({ kitchen: true });
+        } catch {
+          setPushOn(false);
+        }
+      }
+    }
+    syncPush();
+  }, []);
   useEffect(() => { setEmailOn(user?.emailNotificationsEnabled ?? false); }, [user]);
 
   async function togglePush() {
@@ -30,8 +43,12 @@ export default function AdminNotifications() {
   }
 
   async function testPush() {
-    try { await api.post('/push/test'); toast.success('Test-Push gesendet'); }
-    catch (e) { toast.error(e.displayMessage || 'Fehler'); }
+    try {
+      const res = await api.post('/push/test');
+      toast.success(`Test-Push gesendet${res.data.sent ? ` (${res.data.sent} Gerät)` : ''}`);
+    } catch (e) {
+      toast.error(e.displayMessage || 'Test fehlgeschlagen — Push bitte aus- und wieder einschalten');
+    }
   }
 
   async function toggleEmail() {

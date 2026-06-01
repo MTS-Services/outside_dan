@@ -13,7 +13,7 @@ export function pushSupported() {
 
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
-  const existing = await navigator.serviceWorker.getRegistration('/sw.js');
+  const existing = await navigator.serviceWorker.getRegistration();
   if (existing) return existing;
   return navigator.serviceWorker.register('/sw.js');
 }
@@ -51,12 +51,13 @@ export async function subscribeToPush({ kitchen = false } = {}) {
 
   const endpoint = kitchen ? '/push/subscribe-kitchen' : '/push/subscribe';
   await api.post(endpoint, { subscription: sub.toJSON(), deviceName: getDeviceName() });
+  sessionStorage.removeItem('admin_push_prompt_dismissed');
   return sub;
 }
 
 export async function unsubscribeFromPush() {
   if (!('serviceWorker' in navigator)) return;
-  const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+  const reg = await navigator.serviceWorker.getRegistration();
   if (!reg) return;
   const sub = await reg.pushManager.getSubscription();
   if (sub) {
@@ -67,7 +68,8 @@ export async function unsubscribeFromPush() {
 
 export async function isPushSubscribed() {
   if (!pushSupported()) return false;
-  const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+  if (!('serviceWorker' in navigator)) return false;
+  const reg = await navigator.serviceWorker.getRegistration();
   if (!reg) return false;
   const sub = await reg.pushManager.getSubscription();
   return !!sub;

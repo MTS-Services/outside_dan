@@ -2,33 +2,32 @@ import { useState } from 'react';
 import { subscribeToPush, pushSupported } from '../api/push';
 
 /**
- * Shown after login/signup when Notification.permission === 'default'.
- * Explains why we need push notifications, then triggers the browser dialog.
+ * Shown when push is supported but the browser is not subscribed yet.
+ * Explains why we need push notifications, then triggers subscribe flow.
  */
-export default function PushPromptModal({ onDone }) {
+export default function PushPromptModal({ onDone, kitchen = false }) {
   const [busy, setBusy] = useState(false);
 
   async function handleEnable() {
     setBusy(true);
     try {
-      await subscribeToPush();
+      await subscribeToPush({ kitchen });
     } catch {
       // denied or failed – silently ignore
     } finally {
       setBusy(false);
-      onDone();
+      onDone?.();
     }
   }
 
   if (!pushSupported()) {
-    onDone();
+    onDone?.();
     return null;
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
       <div className="card max-w-sm w-full p-8 flex flex-col items-center text-center space-y-5">
-        {/* Bell icon */}
         <div className="w-16 h-16 rounded-full bg-brand-500/20 flex items-center justify-center">
           <svg className="w-8 h-8 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round"
@@ -37,13 +36,18 @@ export default function PushPromptModal({ onDone }) {
         </div>
 
         <div>
-          <h2 className="font-display text-3xl mb-2">BESTELLUPDATES</h2>
+          <h2 className="font-display text-3xl mb-2">
+            {kitchen ? 'BESTELLALARME' : 'BESTELLUPDATES'}
+          </h2>
           <p className="text-white/60 text-sm leading-relaxed">
-            Aktiviere Push-Benachrichtigungen und erfahre sofort, wenn deine Bestellung angenommen oder abgelehnt wird — auch wenn diese Seite geschlossen ist.
+            {kitchen
+              ? 'Aktiviere Push-Benachrichtigungen und erhalte sofort einen Alarm bei jeder neuen Bestellung — auch wenn dieser Tab geschlossen ist.'
+              : 'Aktiviere Push-Benachrichtigungen und erfahre sofort, wenn deine Bestellung angenommen oder abgelehnt wird — auch wenn diese Seite geschlossen ist.'}
           </p>
         </div>
 
         <button
+          type="button"
           onClick={handleEnable}
           disabled={busy}
           className="btn-primary w-full justify-center"
@@ -52,7 +56,8 @@ export default function PushPromptModal({ onDone }) {
         </button>
 
         <button
-          onClick={onDone}
+          type="button"
+          onClick={() => onDone?.()}
           className="text-white/40 hover:text-white/70 text-sm transition-colors"
         >
           Jetzt nicht

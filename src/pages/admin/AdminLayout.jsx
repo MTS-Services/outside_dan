@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
-import { subscribeToPush, isPushSubscribed } from '../../api/push';
+import { subscribeToPush, isPushSubscribed, pushSupported } from '../../api/push';
 import PushPromptModal from '../../components/PushPromptModal';
 
 const NAV = [
@@ -37,15 +37,28 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (!token) return;
-    // Ask staff to enable push notifications if they haven't yet
+
     const checkPush = async () => {
-      if (typeof Notification === 'undefined') return;
-      if (Notification.permission !== 'default') return;
+      if (!pushSupported()) return;
+      if (Notification.permission === 'denied') return;
+      if (sessionStorage.getItem('admin_push_prompt_dismissed') === '1') return;
+
       try {
-        const subscribed = await isPushSubscribed();
-        if (!subscribed) setShowPushPrompt(true);
+        if (await isPushSubscribed()) return;
+
+        if (Notification.permission === 'granted') {
+          try {
+            await subscribeToPush({ kitchen: true });
+            return;
+          } catch {
+            // Permission granted but subscription failed — show prompt to retry
+          }
+        }
+
+        setShowPushPrompt(true);
       } catch { /* noop */ }
     };
+
     checkPush();
   }, [token]);
 
@@ -66,9 +79,9 @@ export default function AdminLayout() {
     <div className="flex min-h-screen bg-[#0d0f14]">
       {showPushPrompt && (
         <PushPromptModal
-          onClose={() => setShowPushPrompt(false)}
-          onAccept={async () => {
-            try { await subscribeToPush({ kitchen: true }); } catch { /* noop */ }
+          kitchen
+          onDone={() => {
+            sessionStorage.setItem('admin_push_prompt_dismissed', '1');
             setShowPushPrompt(false);
           }}
         />
