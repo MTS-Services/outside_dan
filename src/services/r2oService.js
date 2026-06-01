@@ -10,6 +10,8 @@
  */
 const axios = require('axios');
 const config = require('../config');
+const prisma = require('../config/prisma');
+const r2oConfig = require('./r2oConfigService');
 
 const client = axios.create({
   baseURL: config.r2o.baseUrl,
@@ -17,13 +19,18 @@ const client = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    Authorization: config.r2o.apiKey ? `Bearer ${config.r2o.apiKey}` : undefined,
   },
 });
 
+client.interceptors.request.use((reqConfig) => {
+  const key = r2oConfig.getApiKeySync();
+  if (key) reqConfig.headers.Authorization = `Bearer ${key}`;
+  return reqConfig;
+});
+
 function isConfigured() {
-  const key = config.r2o.apiKey;
-  return Boolean(key) && !key.startsWith('your-') && key.length > 10;
+  const key = r2oConfig.getApiKeySync();
+  return r2oConfig.isKeyValid(key);
 }
 
 /** Fetch all products (used to map menu items to POS product IDs). */
@@ -566,6 +573,27 @@ async function listCouponsFromR2o() {
 /** Cached discount group id — fetched once from R2O the first time it's needed. */
 let _cachedDiscountGroupId = null;
 
+/** Clear account-specific caches after connecting to a different R2O account. */
+function clearR2oAccountCaches() {
+  _cachedDiscountGroupId = null;
+  _cache.paymentMethods = null;
+  _cache.userId = undefined;
+  _cache.vatId = undefined;
+  _cache.zeroVatId = undefined;
+  _cache.productGroupId = undefined;
+  _cache.customerCategoryId = undefined;
+  _cache.products = {};
+  _cache._usersFetched = false;
+  _cache._vatFetched = false;
+  _cache._zeroVatFetched = false;
+  _cache._pgFetched = false;
+  _cache._ccFetched = false;
+}
+
+function findDiscountByCode(discounts, code) {
+  return discounts.find((d) => d.discount_name === code) || null;
+}
+
 /**
  * Fetch the first active discount group from R2O and cache its id.
  * If none exist, creates one named "Gutscheine".
@@ -594,12 +622,28 @@ async function resolveDiscountGroupId() {
 }
 
 /**
- * Create a discount in Ready2Order.
+ * Find or create a discount in Ready2Order.
+ * Searches by discount_name first, then creates only if missing.
  * coupon: { code, type ('FIXED'|'PERCENT'), value }
+ * existingDiscounts: optional pre-fetched list to avoid extra API calls
  * Returns the R2O discount_id on success, or null on failure.
  */
-async function createDiscountInR2o(coupon) {
+async function createDiscountInR2o(coupon, existingDiscounts) {
   if (!isConfigured()) return null;
+
+  let discounts = existingDiscounts;
+  if (!discounts) {
+    discounts = await listDiscountsFromR2o();
+  }
+
+  const existing = findDiscountByCode(discounts, coupon.code);
+  if (existing) {
+    const r2oId = existing.discount_id || existing.id;
+    console.log(`[r2o] Reusing existing R2O discount for ${coupon.code} (id=${r2oId})`);
+    await updateDiscountInR2o(r2oId, coupon).catch(() => {});
+    return r2oId;
+  }
+
   try {
     const discountGroupId = await resolveDiscountGroupId();
     if (!discountGroupId) {
@@ -619,24 +663,64 @@ async function createDiscountInR2o(coupon) {
     return r2oId;
   } catch (err) {
     const msg = err.response?.data?.msg || err.message || '';
-    // If a discount with the same name already exists, reuse it
     if (msg.toLowerCase().includes('already') || err.response?.status === 409) {
-      try {
-        const { data: list } = await client.get('/discounts');
-        const arr = Array.isArray(list) ? list : (list.discounts || []);
-        const existing = arr.find((d) => d.discount_name === coupon.code);
-        if (existing) {
-          const r2oId = existing.discount_id || existing.id;
-          console.log(`[r2o] Reusing existing R2O discount for ${coupon.code} (id=${r2oId})`);
-          return r2oId;
-        }
-      } catch (lookupErr) {
-        console.warn('[r2o] Discount lookup failed:', lookupErr.message);
+      const refreshed = await listDiscountsFromR2o();
+      const fallback = findDiscountByCode(refreshed, coupon.code);
+      if (fallback) {
+        const r2oId = fallback.discount_id || fallback.id;
+        console.log(`[r2o] Reusing existing R2O discount for ${coupon.code} (id=${r2oId})`);
+        return r2oId;
       }
     }
     console.warn('[r2o] Discount create failed:', msg);
     return null;
   }
+}
+
+/**
+ * Reset stored R2O ids on all local coupons (e.g. after switching accounts).
+ */
+async function resetCouponR2oIds() {
+  await prisma.coupon.updateMany({
+    data: { r2oDiscountId: null, r2oCouponId: null },
+  });
+}
+
+/**
+ * After connecting a new ready2order account, clear old ids and re-link
+ * every local coupon: search in R2O by code, create if missing.
+ */
+async function resyncAllCouponsToR2o() {
+  if (!isConfigured()) return { synced: 0, failed: 0 };
+
+  clearR2oAccountCaches();
+  await resetCouponR2oIds();
+
+  const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'asc' } });
+  if (!coupons.length) return { synced: 0, failed: 0 };
+
+  const r2oDiscounts = await listDiscountsFromR2o();
+  let synced = 0;
+  let failed = 0;
+
+  for (const coupon of coupons) {
+    const r2oDiscountId = await createDiscountInR2o(coupon, r2oDiscounts);
+    if (r2oDiscountId) {
+      await prisma.coupon.update({
+        where: { id: coupon.id },
+        data: { r2oDiscountId: String(r2oDiscountId) },
+      });
+      if (!findDiscountByCode(r2oDiscounts, coupon.code)) {
+        r2oDiscounts.push({ discount_id: r2oDiscountId, discount_name: coupon.code });
+      }
+      synced += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  console.log(`[r2o] Coupon resync complete: ${synced} synced, ${failed} failed`);
+  return { synced, failed };
 }
 
 /**
@@ -735,6 +819,7 @@ module.exports = {
   getPaymentMethods,
   createInvoiceForOrder,
   isConfigured,
+  clearR2oAccountCaches,
   createCouponInR2o,
   updateCouponInR2o,
   deleteCouponInR2o,
@@ -743,4 +828,6 @@ module.exports = {
   updateDiscountInR2o,
   deleteDiscountInR2o,
   listDiscountsFromR2o,
+  resetCouponR2oIds,
+  resyncAllCouponsToR2o,
 };
