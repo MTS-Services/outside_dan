@@ -178,12 +178,12 @@ export default function AdminR2O() {
         description="Den Developer Token von api.ready2order.com hier speichern. Er wird sicher in den Einstellungen hinterlegt."
       >
         <form onSubmit={saveDeveloperToken} className="space-y-3">
-          <input
-            type="password"
+          <textarea
             value={developerToken}
             onChange={(e) => setDeveloperToken(e.target.value)}
+            rows={4}
             placeholder={status?.hasDeveloperToken ? 'Neuen Developer Token eingeben…' : 'Developer Token einfügen…'}
-            className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#D9AF47]/50"
+            className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#D9AF47]/50 resize-y font-mono"
           />
           <button type="submit" disabled={savingDev} className="btn-primary text-sm">
             {savingDev ? 'Speichere…' : 'Developer Token speichern'}
