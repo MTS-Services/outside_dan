@@ -93,7 +93,7 @@ export default function ExtrasModal({ open, item, extras = [], onClose, onConfir
   };
 
   const content = (
-    <div className={`fixed inset-0 z-[80] overflow-hidden ${open ? '' : 'pointer-events-none'}`}>
+    <div className={`fixed inset-0 z-[80] overflow-hidden ${open ? '' : 'pointer-events-none'}`} data-lenis-prevent>
       <div ref={backdropRef} onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-sm" style={{ visibility: 'hidden' }} />
       <aside
         ref={panelRef}
@@ -121,7 +121,7 @@ export default function ExtrasModal({ open, item, extras = [], onClose, onConfir
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 min-h-0 p-6 overflow-y-auto overscroll-contain" data-lenis-prevent>
           {hasHtmlContent(item.description) && (
             <HtmlContent html={item.description} className="mb-6" />
           )}

@@ -61,7 +61,7 @@ export default function CartDrawer() {
   }, [open, close]);
 
   return (
-    <div className={`fixed inset-0 z-[60] ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+    <div className={`fixed inset-0 z-[60] ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open} data-lenis-prevent>
       {/* Backdrop */}
       <div
         ref={backdropRef}
@@ -100,7 +100,7 @@ export default function CartDrawer() {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5 space-y-4" data-lenis-prevent>
           {items.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center text-white/50 py-20">
               <Icon name="cart" className="w-12 h-12 mb-4 opacity-40" />
