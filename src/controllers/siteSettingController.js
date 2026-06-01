@@ -19,4 +19,14 @@ async function upsertAll(req, res, next) {
   }
 }
 
-module.exports = { getAll, upsertAll };
+async function setOrdersAccepted(req, res, next) {
+  try {
+    const orders_accepted = req.body.orders_accepted !== false;
+    await siteSettingService.upsertMany({ orders_accepted });
+    res.json({ orders_accepted });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getAll, upsertAll, setOrdersAccepted };

@@ -175,6 +175,10 @@ const legalPage = Joi.object({
   isActive: Joi.boolean().default(true),
 });
 
+const ordersAccepted = Joi.object({
+  orders_accepted: Joi.boolean().required(),
+});
+
 module.exports = {
   login, register,
   profileUpdate, passwordChange, notifPrefs,
@@ -183,5 +187,5 @@ module.exports = {
   orderCreate, orderEdit, orderStatus, orderAccept, orderDecline,
   paypalCreate,
   forgotPassword, resetPassword,
-  deliveryZone, coupon, legalPage,
+  deliveryZone, coupon, legalPage, ordersAccepted,
 };
