@@ -11,7 +11,7 @@ const router = require('express').Router();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const { authRequired, requireAdmin } = require('../middlewares/auth');
+const { authRequired, requireStaff } = require('../middlewares/auth');
 
 const ENV_PATH = path.resolve(__dirname, '../../.env');
 const R2O_BASE = process.env.R2O_BASE_URL || 'https://api.ready2order.com/v1';
@@ -137,8 +137,8 @@ router.get('/products', async (req, res) => {
 });
 
 // ─── GET /api/r2o/vat-rates ───────────────────────────────────────────────────
-// Returns VAT rates from the linked r2o account (admin only).
-router.get('/vat-rates', [authRequired, requireAdmin], async (req, res) => {
+// Returns VAT rates from the linked r2o account (admin + subadmin).
+router.get('/vat-rates', [authRequired, requireStaff], async (req, res) => {
   const apiKey = process.env.R2O_API_KEY;
   if (!apiKey || apiKey === 'your-ready2order-account-token') {
     return res.status(503).json({ error: 'ready2order not configured' });
