@@ -47,7 +47,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" onClick={handleNav} className="flex items-center shrink-0">
-          <img src="/logo.png" alt="Tarantella" className="h-10 w-auto max-h-10 object-contain" />
+          <img
+            src="/logo.png"
+            alt="Tarantella"
+            className="h-[100px] w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop nav */}
