@@ -26,7 +26,6 @@ function getPublicKey() {
 async function saveSubscription({ subscription, userId = null, isKitchen = false, deviceName = null }) {
   if (!subscription?.endpoint) throw new Error('Invalid subscription');
   const { endpoint, keys } = subscription;
-  // Upsert by endpoint
   return prisma.pushSubscription.upsert({
     where: { endpoint },
     update: { p256dh: keys.p256dh, auth: keys.auth, userId, isKitchen, ...(deviceName ? { deviceName } : {}) },
@@ -39,8 +38,17 @@ async function removeSubscription(endpoint) {
 }
 
 async function sendToSubs(subs, payload) {
-  if (!configured || !subs.length) return;
+  if (!configured) {
+    return { sent: 0, failed: 0, skipped: subs.length, configured: false };
+  }
+  if (!subs.length) {
+    return { sent: 0, failed: 0, skipped: 0, configured: true };
+  }
+
+  let sent = 0;
+  let failed = 0;
   const body = JSON.stringify(payload);
+
   await Promise.all(
     subs.map(async (s) => {
       try {
@@ -48,7 +56,9 @@ async function sendToSubs(subs, payload) {
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
           body,
         );
+        sent += 1;
       } catch (err) {
+        failed += 1;
         if (err.statusCode === 404 || err.statusCode === 410) {
           await removeSubscription(s.endpoint);
         } else {
@@ -58,26 +68,34 @@ async function sendToSubs(subs, payload) {
       }
     }),
   );
+
+  return { sent, failed, skipped: 0, configured: true };
 }
 
 /** Push to one specific user (e.g. order owner). */
-async function pushToUser(userId, payload) {
-  if (!userId) return;
+async function pushToUser(userId, payload, { skipPushEnabledCheck = false } = {}) {
+  if (!userId) return { sent: 0, failed: 0, skipped: 0, configured };
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) { console.warn('[push] pushToUser: user not found', userId); return; }
-  if (user.pushEnabled === false) { console.warn('[push] pushToUser: pushEnabled=false for', userId); return; }
+  if (!user) {
+    console.warn('[push] pushToUser: user not found', userId);
+    return { sent: 0, failed: 0, skipped: 0, configured };
+  }
+  if (!skipPushEnabledCheck && user.pushEnabled === false) {
+    console.warn('[push] pushToUser: pushEnabled=false for', userId);
+    return { sent: 0, failed: 0, skipped: 0, configured };
+  }
   const subs = await prisma.pushSubscription.findMany({ where: { userId } });
   if (!subs.length) {
-    console.warn('[push] pushToUser: no subscriptions found for userId', userId, '— user may not have subscribed on this device');
-    return;
+    console.warn('[push] pushToUser: no subscriptions found for userId', userId);
+    return { sent: 0, failed: 0, skipped: 0, configured };
   }
-  await sendToSubs(subs, payload);
+  return sendToSubs(subs, payload);
 }
 
 /** Push to all kitchen / admin subscribers. */
 async function pushToKitchen(payload) {
   const subs = await prisma.pushSubscription.findMany({ where: { isKitchen: true } });
-  await sendToSubs(subs, payload);
+  return sendToSubs(subs, payload);
 }
 
 /**
@@ -95,11 +113,11 @@ async function pushToStaff(payload, { excludeUserId } = {}) {
     },
     select: { id: true },
   });
-  if (!staff.length) return;
+  if (!staff.length) return { sent: 0, failed: 0, skipped: 0, configured };
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: { in: staff.map((s) => s.id) } },
   });
-  await sendToSubs(subs, payload);
+  return sendToSubs(subs, payload);
 }
 
 module.exports = {

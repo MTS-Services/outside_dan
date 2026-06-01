@@ -8,6 +8,7 @@
  */
 const router = require('express').Router();
 const push = require('../services/pushService');
+const prisma = require('../config/prisma');
 const { authRequired, requireRole } = require('../middlewares/auth');
 const { optionalAuth } = require('../middlewares/optionalAuth');
 
@@ -22,7 +23,6 @@ router.post('/subscribe', optionalAuth, async (req, res, next) => {
     await push.saveSubscription({ subscription: req.body.subscription, userId, deviceName });
     // Also flip pushEnabled=true on the user so pushToUser() doesn't skip them
     if (userId) {
-      const prisma = require('../config/prisma');
       await prisma.user.update({ where: { id: userId }, data: { pushEnabled: true } });
     }
     res.json({ ok: true });
@@ -39,6 +39,11 @@ router.post(
         subscription: req.body.subscription,
         userId: req.user.sub,
         isKitchen: true,
+        deviceName: req.body.deviceName || null,
+      });
+      await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { pushEnabled: true },
       });
       res.json({ ok: true });
     } catch (e) { next(e); }
@@ -80,22 +85,35 @@ router.delete('/subscriptions/:id', authRequired, async (req, res, next) => {
 
 router.post('/test', authRequired, async (req, res, next) => {
   try {
-    if (req.user.role === 'ADMIN' || req.user.role === 'SUBADMIN' || req.user.role === 'STAFF') {
-      await push.pushToKitchen({
-        title: 'Tarantella – Test',
-        body: 'Push-Benachrichtigungen funktionieren ✓',
-        icon: '/uploads/logo.png',
-        url: '/admin',
-      });
-    } else {
-      await push.pushToUser(req.user.sub, {
-        title: 'Tarantella – Test',
-        body: 'Push-Benachrichtigungen funktionieren ✓',
-        icon: '/uploads/logo.png',
-        url: '/account',
+    if (!push.isConfigured()) {
+      return res.status(503).json({ error: 'Push ist auf dem Server nicht konfiguriert (VAPID-Schlüssel fehlen).' });
+    }
+
+    const payload = {
+      title: 'Tarantella – Test',
+      body: 'Push-Benachrichtigungen funktionieren ✓',
+      icon: '/logo.png',
+      url: req.user.role === 'ADMIN' || req.user.role === 'SUBADMIN' || req.user.role === 'STAFF'
+        ? '/admin'
+        : '/account',
+    };
+
+    // Send test to the current user's registered devices
+    const result = await push.pushToUser(req.user.sub, payload, { skipPushEnabledCheck: true });
+
+    if (!result.sent) {
+      return res.status(400).json({
+        error: 'Keine Push-Registrierung gefunden. Bitte Push ausschalten und wieder einschalten.',
       });
     }
-    res.json({ ok: true });
+
+    if (result.failed && !result.sent) {
+      return res.status(502).json({
+        error: 'Push konnte nicht zugestellt werden. Bitte Push erneut aktivieren.',
+      });
+    }
+
+    res.json({ ok: true, sent: result.sent, failed: result.failed || 0 });
   } catch (e) { next(e); }
 });
 
