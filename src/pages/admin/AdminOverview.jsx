@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import api from '../../api/client';
-import OrdersAcceptedToggle from '../../components/OrdersAcceptedToggle';
 
 /* ── icons (inline SVG to avoid extra deps) ─────────────── */
 const icons = {
@@ -69,8 +68,6 @@ export default function AdminOverview() {
           Live
         </span>
       </div>
-
-      <OrdersAcceptedToggle />
 
       {/* stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
