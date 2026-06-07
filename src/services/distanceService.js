@@ -125,8 +125,73 @@ function formatOrderAddress(order) {
   return parts.join(', ');
 }
 
+/** Fallback queries when the full street address cannot be geocoded in Austria. */
+function deliveryGeocodeCandidates(order) {
+  const street = (order.street || '').trim();
+  const postalCode = (order.postalCode || '').trim();
+  const city = (order.city || '').trim();
+  const candidates = [];
+  if (street && postalCode && city) candidates.push(`${street}, ${postalCode} ${city}`);
+  if (postalCode && city) candidates.push(`${postalCode} ${city}`);
+  if (postalCode) candidates.push(postalCode);
+  return [...new Set(candidates)];
+}
+
+async function geocodeFirst(queries) {
+  for (const q of queries) {
+    const hit = await geocode(q);
+    if (hit) return { ...hit, query: q };
+  }
+  return null;
+}
+
 async function getDriveTimeForOrder(order) {
-  return getDriveTimeTo(formatOrderAddress(order));
+  const origin = await getRestaurantAddress();
+  if (!origin) return { error: 'Restaurant-Adresse nicht konfiguriert' };
+
+  const candidates = deliveryGeocodeCandidates(order);
+  if (!candidates.length) return { error: 'Lieferadresse fehlt' };
+
+  const key = cacheKey(origin, candidates.join('|'));
+  const cached = getCached(key);
+  if (cached) return cached;
+
+  try {
+    const from = await geocode(origin);
+    if (!from) return { error: 'Restaurant-Adresse konnte nicht gefunden werden' };
+
+    const to = await geocodeFirst(candidates);
+    if (!to) {
+      return {
+        error: 'Lieferadresse konnte nicht gefunden werden',
+        hint: 'Straße scheint ungültig (z. B. Testadresse). Bitte Lieferzone und Straße prüfen.',
+      };
+    }
+
+    const route = await routeMinutes(from, to);
+    if (!route) return { error: 'Fahrzeit konnte nicht berechnet werden' };
+
+    const maxMinutes = await getMaxDeliveryMinutes();
+    const destination = formatOrderAddress(order);
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+    const usedFallback = to.query !== candidates[0];
+
+    const result = {
+      minutes: route.minutes,
+      distanceKm: route.distanceKm,
+      maxMinutes,
+      tooFar: route.minutes > maxMinutes,
+      origin,
+      destination,
+      geocodedAs: to.query,
+      approximate: usedFallback,
+      mapsUrl,
+    };
+    setCache(key, result);
+    return result;
+  } catch (err) {
+    return { error: err.message || 'Fahrzeit konnte nicht berechnet werden' };
+  }
 }
 
 module.exports = {
