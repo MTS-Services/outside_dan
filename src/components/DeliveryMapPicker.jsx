@@ -166,8 +166,8 @@ export default function DeliveryMapPicker({
       <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800">
         <div
           ref={mapRef}
-          className="delivery-map h-56 sm:h-64 w-full"
-          style={{ minHeight: '14rem' }}
+          className="delivery-map h-72 sm:h-96 md:h-[28rem] w-full"
+          style={{ minHeight: '18rem' }}
         />
         {loading && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-sm text-white/80 z-[500] pointer-events-none">
