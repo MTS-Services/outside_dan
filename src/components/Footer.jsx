@@ -22,11 +22,12 @@ export default function Footer() {
     api.get('/legal-pages').then((r) => setLegalPages(r.data || [])).catch(() => {});
   }, []);
 
-  const name    = s.restaurant_name    || 'ROCKIN RUMBLE';
-  const desc    = s.footer_description || 'Lautes Essen, schnelle Lieferung. Handgemachte Burger, knusprige Pizza, eiskalte Getränke — direkt aus unserer Küche zu dir nach Hause.';
-  const address = s.restaurant_address || 'Musterstraße 1, 1010 Wien, Österreich';
-  const phone   = s.restaurant_phone   || '+43 1 234 5678';
-  const email   = s.restaurant_email   || 'hello@rockin-rumble.com';
+  const name    = s.restaurant_name    || 'Tarantella';
+  const tagline = s.footer_tagline     || 'Pizzeria & italienisches Restaurant in Trofaiach';
+  const desc    = s.footer_description || 'Tarantella befindet sich am Sonnenweg 11 in Trofaiach und wurde 2025 von Falstaff zur beliebtesten Pizzeria der Steiermark gewählt. Genieße originale Pizza Napoletana, frische Pasta und italienische Spezialitäten in unserem Restaurant oder bequem bei dir zuhause.';
+  const address = s.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach, Österreich';
+  const phone   = s.restaurant_phone   || '+43 676 632 86 77';
+  const email   = s.restaurant_email   || 'reservierung@tarantella.at';
   const fbUrl   = s.restaurant_facebook  || 'https://facebook.com';
   const igUrl   = s.restaurant_instagram || 'https://instagram.com';
 
@@ -43,6 +44,7 @@ export default function Footer() {
           <div className="mb-4">
             <img src="/logo.png" alt="Tarantella" className="h-24 w-auto object-contain" />
           </div>
+          <p className="text-white/80 text-sm font-medium mb-2">{tagline}</p>
           <p className="text-white/55 text-sm leading-relaxed mb-5">{desc}</p>
           <div className="flex gap-3">
             <a href={fbUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook"

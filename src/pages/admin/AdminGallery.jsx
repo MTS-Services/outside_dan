@@ -29,6 +29,7 @@ const HERO_SLOTS = [
   { key: 'home_hero',    label: 'Startseite Hero' },
   { key: 'about_hero',   label: 'Über uns Hero' },
   { key: 'about_story',  label: 'Über uns Story' },
+  { key: 'about_founder', label: 'Gründer Foto' },
   { key: 'contact_hero', label: 'Kontakt Hero' },
   { key: 'menu_hero',    label: 'Speisekarte Hero' },
 ];

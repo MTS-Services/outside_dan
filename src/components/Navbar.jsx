@@ -65,7 +65,7 @@ export default function Navbar() {
               }`
             }
           >
-            Order now
+            Jetzt bestellen
           </NavLink>
 
           {/* Speisekarte dropdown */}
@@ -134,7 +134,7 @@ export default function Navbar() {
                 Anmelden
               </Link>
               <Link to="/signup" onClick={handleNav} className="btn-primary py-2 px-4">
-                Registrieren
+                Konto erstellen
               </Link>
             </div>
           )}
@@ -164,7 +164,7 @@ export default function Navbar() {
               }`
             }
           >
-            Order now
+            Jetzt bestellen
           </NavLink>
           <a
             href="/speisekarte.pdf"
@@ -185,7 +185,7 @@ export default function Navbar() {
           ) : (
             <>
               <NavLink to="/login" onClick={handleNav} className={mobileLink}>Anmelden</NavLink>
-              <NavLink to="/signup" onClick={handleNav} className={mobileLink}>Registrieren</NavLink>
+              <NavLink to="/signup" onClick={handleNav} className={mobileLink}>Konto erstellen</NavLink>
             </>
           )}
         </div>

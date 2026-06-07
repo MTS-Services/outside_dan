@@ -90,8 +90,6 @@ export default function Menu() {
     scrollToMenu();
   };
 
-  const totalItems = categories.reduce((s, c) => s + c.items.length, 0);
-
   useGSAP(() => {
     gsap.to('.menu-hero-bg', { yPercent: 30, ease: 'none', scrollTrigger: { trigger: '.menu-hero', start: 'top top', end: 'bottom top', scrub: true } });
     gsap.from('.menu-hero-anim', { y: 40, opacity: 0, duration: 1, stagger: 0.1, ease: 'power3.out' });
@@ -111,9 +109,11 @@ export default function Menu() {
         )}
         <div className="hero-img-overlay absolute inset-0" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
-          <span className="menu-hero-anim chip bg-brand-500/20 text-brand-300 mb-4 inline-block">{totalItems} Artikel verfügbar</span>
+          <span className="menu-hero-anim chip bg-brand-500/20 text-brand-300 mb-4 inline-block">Pizza, Pasta, Antipasti, Desserts & Getränke</span>
           <h1 className="menu-hero-anim font-display text-6xl md:text-7xl mt-3">UNSERE SPEISEKARTE</h1>
-          <p className="menu-hero-anim text-white/65 mt-4 text-lg">Frisch zubereitet. Schnell geliefert. Keine Kompromisse.</p>
+          <p className="menu-hero-anim text-white/65 mt-4 text-lg max-w-3xl mx-auto">
+            Pizza Napoletana, Pasta, Antipasti und italienische Desserts – frisch zubereitet bei Tarantella in Trofaiach.
+          </p>
         </div>
       </section>
 

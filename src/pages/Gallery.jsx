@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import api from '../api/client';
+import Icon from '../components/Icon';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -64,6 +65,11 @@ export default function Gallery() {
         });
       });
 
+      gsap.from('.gal-story', {
+        y: 50, opacity: 0, duration: 1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.gal-story', start: 'top 85%' },
+      });
+
       gsap.from('.gal-cta', {
         y: 60, opacity: 0, duration: 1, ease: 'power3.out',
         scrollTrigger: { trigger: '.gal-cta', start: 'top 85%' },
@@ -91,13 +97,13 @@ export default function Gallery() {
         <div className="absolute inset-0 bg-gradient-to-b from-ink-900/50 via-ink-900/30 to-ink-900/85" />
         <div className="relative z-10 text-center px-4">
           <span className="gal-hero-anim inline-block bg-brand-500/20 text-brand-300 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full border border-brand-500/30 mb-6">
-            Visuelles Festmahl
+            Einblick in unsere Welt
           </span>
           <h1 className="gal-hero-anim font-display text-6xl md:text-8xl tracking-wider text-white drop-shadow-2xl">
             UNSERE GALERIE
           </h1>
-          <p className="gal-hero-anim text-white/60 mt-5 text-lg max-w-xl mx-auto leading-relaxed">
-            Von der Küche auf den Tisch — jedes Gericht erzählt eine Geschichte.
+          <p className="gal-hero-anim text-white/60 mt-5 text-lg max-w-2xl mx-auto leading-relaxed">
+            Original Pizza Napoletana, italienische Küche und Eindrücke aus unserem Restaurant in Trofaiach.
           </p>
           <div className="gal-hero-anim mt-8 flex items-center justify-center gap-3 text-white/40 text-sm">
             <span className="w-10 h-px bg-white/20" />
@@ -142,8 +148,22 @@ export default function Gallery() {
         )}
       </section>
 
+      {/* ── STORY ────────────────────────────────────────── */}
+      <section className="gal-story max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <h2 className="section-title">Die Geschichte hinter Tarantella</h2>
+        <div className="divider-brand" />
+        <p className="text-white/65 mt-6 text-sm sm:text-base leading-relaxed">
+          Was als Traum begann, authentische neapolitanische Pizza nach Trofaiach zu bringen, ist heute
+          ein Ort voller italienischer Lebensfreude. Im IZZO FORNI Ofen, mit handwerklichem Können und
+          echter Gastfreundschaft – und 2025 von Falstaff zur beliebtesten Pizzeria der Steiermark gewählt.
+        </p>
+        <Link to="/about#founder-story" className="btn-outline mt-8 inline-flex items-center gap-2">
+          Die Geschichte lesen <Icon name="arrowRight" className="w-4 h-4" />
+        </Link>
+      </section>
+
       {/* ── ORDER CTA ────────────────────────────────────── */}
-      <div className="py-16 flex justify-center">
+      <div className="gal-cta py-16 flex justify-center">
         <Link
           to="/menu"
           className="btn-primary text-lg px-12 py-4 inline-flex items-center gap-3"

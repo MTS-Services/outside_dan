@@ -16,9 +16,21 @@ const HERO_IMAGES = [
 ];
 
 const REVIEWS = [
-  { name: 'Maria S.', text: 'Unglaubliche Burger — saftig, knusprig und in 30 Minuten heiß geliefert. Rockin Rumble ist unser Freitagabend-Klassiker!', stars: 5 },
-  { name: 'Thomas K.', text: 'Der Pizzateig ist perfekt, leicht knusprig und super geschmackvoll. Online-Bestellung kinderleicht. Ich bestelle wieder.', stars: 5 },
-  { name: 'Anna M.', text: 'Bestes Liefer-Erlebnis in Wien. Die App hat unsere Bestellung in Echtzeit verfolgt — alles kam genau wie versprochen.', stars: 5 },
+  {
+    name: 'Elisabeth H.',
+    text: 'Ich war schon öfter in dieser Pizzeria und komme jedes Mal sehr gerne wieder. Die Pizzen sind einfach ein Traum. Man merkt, dass hier viel Wert auf Qualität gelegt wird. Für mich eine absolute Herzens-Empfehlung!',
+    stars: 5,
+  },
+  {
+    name: 'Mark K.',
+    text: 'Einer der besten Pizzen die ich je gegessen habe! War so gut, dass ich mir noch eine zum Mitnehmen bestellt habe. Auch das Personal war eines der freundlichsten welches ich erlebt habe! Alles einfach TOLL!, auch die Gegend wunderschön!',
+    stars: 5,
+  },
+  {
+    name: 'Walter F.',
+    text: 'Eine Pizzeria mit echten italienischen Kellnern die alleine durch ihre Sprache das richtige Flair hervorzaubern. Das Lokal liegt auf einer Anhöhe mit wunderschönem Ausblick. Das Service und das Essen ist erstklassig! Gerne und jederzeit wieder…',
+    stars: 5,
+  },
 ];
 
 export default function Home() {
@@ -190,25 +202,16 @@ export default function Home() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:py-28">
           <div className="max-w-2xl">
             <span className="hero-anim chip bg-brand-500/30 text-brand-200 mb-4 sm:mb-6 text-sm tracking-widest uppercase inline-flex items-center gap-2">
-              <Icon name="star" className="w-3.5 h-3.5" /> Jetzt Lieferung in ganz Wien
+              <Icon name="star" className="w-3.5 h-3.5" /> Neapolitanische Pizza · Trofaiach
             </span>
-            <h1 className="hero-anim font-display text-5xl sm:text-6xl md:text-8xl leading-[0.9] tracking-wide mt-3 sm:mt-4">
-              <span className="inline-block overflow-hidden">
-                {'BEAST'.split('').map((c, i) => (
-                  <span key={i} className="beast-letter inline-block">{c}</span>
-                ))}
-              </span>{' '}
-              <span className="inline-block overflow-hidden">
-                {'MODE'.split('').map((c, i) => (
-                  <span key={i} className="beast-letter inline-block">{c}</span>
-                ))}
-              </span>
-              <br />
-              <span className="text-brand-400">SCHNELLE LIEFERUNG.</span>
+            <h1 className="hero-anim font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-wide mt-3 sm:mt-4">
+              <span className="text-brand-400">Neapel</span> ist näher als du denkst.
             </h1>
             <p className="hero-anim mt-6 text-lg md:text-xl text-white/75 leading-relaxed">
-              Handgemachte Burger, holzofen­gebackene Pizza & eiskalte Getränke —
-              direkt aus unserer Küche an deine Tür in unter 45 Minuten.
+              Luftiger Teig, ausgewählte Zutaten und ein Ofen, der in nur 60 Sekunden echte neapolitanische Pizza zaubert.
+            </p>
+            <p className="hero-anim mt-4 text-base md:text-lg text-white/60 leading-relaxed">
+              Im Tarantella bringen wir die Tradition Neapels nach Trofaiach – mit Leidenschaft, Handwerk und echter italienischer Gastfreundschaft.
             </p>
             <div className="hero-anim mt-9 flex flex-wrap gap-4">
               <Link to="/menu" className="btn-primary px-8 py-3.5 text-lg">
@@ -276,18 +279,18 @@ export default function Home() {
             {[
               {
                 icon: 'trophy',
-                title: 'Preisgekrönte Qualität',
-                desc: 'Jedes Gericht wird aus frischen, regionalen Zutaten zubereitet. Keine Abkürzungen — niemals.',
+                title: 'Ausgezeichnete Qualität',
+                desc: 'Falstaff Publikumssieger 2025 und eine der beliebtesten Adressen für neapolitanische Pizza.',
               },
               {
-                icon: 'device',
-                title: 'Einfache Online-Bestellung',
-                desc: 'Bestelle in unter einer Minute. Verfolge deine Lieferung in Echtzeit bis vor deine Tür.',
+                icon: 'pizza',
+                title: 'Original Neapolitanische Pizza',
+                desc: 'Luftiger Teig, hochwertige Zutaten und traditionell im Steinofen gebacken – nach echter neapolitanischer Art.',
               },
               {
-                icon: 'truck',
-                title: 'Blitzschnelle Lieferung',
-                desc: 'Ø Lieferzeit 35 Minuten. Heiß bei dir zu Hause — genau wie aus der Küche.',
+                icon: 'heart',
+                title: 'Italienische Gastfreundschaft',
+                desc: 'Genieße Pizza, Pasta und Dolci in familiärer Atmosphäre – wie ein Kurzurlaub in Italien.',
               },
             ].map((f) => (
               <div key={f.title} className="feature-card card p-8 flex flex-col items-center text-center hover:border-brand-500/30 transition-colors">
@@ -312,21 +315,24 @@ export default function Home() {
             className="about-img relative rounded-3xl object-cover w-full aspect-[4/3] shadow-2xl will-change-transform"
           />
           <div className="absolute -bottom-4 -right-4 bg-brand-500 text-white rounded-2xl p-5 shadow-glow">
-            <div className="font-display text-3xl">10+</div>
-            <div className="text-sm text-white/80">Jahre Leidenschaft</div>
+            <div className="font-display text-2xl flex items-center gap-1.5">
+              <Icon name="star" className="w-5 h-5 shrink-0" /> 4,8+ Bewertung
+            </div>
+            <div className="text-sm text-white/80 mt-1">tausende zufriedene Gäste</div>
           </div>
         </div>
         <div className="reveal">
           <span className="chip bg-brand-500/20 text-brand-300 mb-4">Unsere Geschichte</span>
-          <h2 className="section-title mt-3">MIT LIEBE GEMACHT IN WIEN</h2>
+          <h2 className="section-title mt-3">VON TROFAIACH ZUR NUMMER 1 DER STEIERMARK</h2>
           <div className="w-16 h-1 bg-brand-500 rounded-full mt-4 mb-6" />
           <p className="text-white/70 leading-relaxed mb-4">
-            Rockin Rumble entstand aus einer Leidenschaft: Essen, das wirklich nach etwas schmeckt.
-            Handgemachte Burger, neapolitanische Pizza bei 485 °C aus dem Holzofen, und Beilagen, die alles überstrahlen.
+            Leidenschaft, Qualität und echte italienische Gastfreundschaft prägen Tarantella seit dem ersten Tag.
+          </p>
+          <p className="text-white/70 leading-relaxed mb-4">
+            Was uns antreibt, ist der Anspruch, unseren Gästen ein authentisches Stück Italien zu bieten – von der neapolitanischen Pizza bis zur hausgemachten Pasta.
           </p>
           <p className="text-white/70 leading-relaxed mb-8">
-            Heute bringen wir alles heiß und frisch zu dir nach Hause. Kein Aufwärmen.
-            Keine Kompromisse. Nur lautes, leckeres Essen — schnell geliefert.
+            2025 wurden wir beim Falstaff Publikumsvoting zur beliebtesten Pizzeria der Steiermark gewählt. Eine Auszeichnung, die wir unseren Gästen verdanken.
           </p>
           <Link to="/about" className="btn-outline">Unsere Geschichte lesen <Icon name="arrowRight" className="w-4 h-4" /></Link>
         </div>
@@ -335,13 +341,13 @@ export default function Home() {
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
       <section className="bg-ink-800/40 border-y border-white/5 py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="section-title">SO FUNKTIONIERT'S</h2>
+          <h2 className="section-title">SO KOMMT ITALIEN ZU DIR NACH HAUSE</h2>
           <div className="divider-brand" />
           <div className="grid md:grid-cols-3 gap-6 mt-4 text-left">
             {[
-              { t: 'Auswählen & Bestellen', d: 'Speisekarte durchstöbern, Warenkorb füllen, in unter einer Minute bezahlen. Kein Konto nötig.' },
-              { t: 'Wir kochen',           d: 'Unser Koch sieht deine Bestellung sofort, nimmt sie an und feuert den Grill an. Du bekommst Live-Updates.' },
-              { t: 'Du genießt',           d: 'Heißes Essen vor deiner Tür, in Echtzeit verfolgt. Genieße jeden Bissen.' },
+              { t: 'Auswählen & bestellen', d: 'Entdecke unsere Speisekarte und bestelle in wenigen Klicks online.' },
+              { t: 'Frisch für dich zubereitet', d: 'Mit ausgewählten Zutaten, traditionellen Rezepten und echter Leidenschaft.' },
+              { t: 'Direkt zu dir', d: 'Lehne dich zurück – wir kümmern uns um den Rest und liefern deine Bestellung zuverlässig zu dir nach Hause.' },
             ].map((s, idx) => (
               <div key={s.t} className="card p-8 relative overflow-hidden group hover:border-brand-500/30 transition-colors">
                 <div className="absolute -top-3 -left-3 font-display text-[100px] text-white/[0.03] leading-none select-none">
@@ -361,8 +367,8 @@ export default function Home() {
       {/* ── GALLERY ──────────────────────────────────────── */}
       <section id="gallery" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="text-center mb-10 reveal">
-          <h2 className="section-title">UNSERE GALERIE</h2>
-          <p className="section-sub">Von der Küche auf den Tisch — jedes Gericht erzählt eine Geschichte.</p>
+          <h2 className="section-title">Unsere Galerie</h2>
+          <p className="section-sub">Mit Leidenschaft zubereitet. Mit Freude serviert. Mit Genuss gegessen.</p>
           <div className="divider-brand" />
         </div>
 
@@ -384,7 +390,7 @@ export default function Home() {
                         <span className="text-white/50 text-xs tracking-widest uppercase font-semibold">Galerie</span>
                         {g.alt && <p className="text-white font-display text-2xl lg:text-3xl mt-1 tracking-wide drop-shadow-lg">{g.alt}</p>}
                         <div className="mt-3 inline-flex items-center gap-2 text-brand-400 text-sm font-semibold">
-                          <span>Alle ansehen</span>
+                          <span>Alle Spezialitäten ansehen</span>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </div>
                       </div>
@@ -427,8 +433,8 @@ export default function Home() {
       <section className="bg-ink-800/40 border-y border-white/5 py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center reveal">
-            <h2 className="section-title">WAS UNSERE GÄSTE SAGEN</h2>
-            <p className="section-sub">Glaub nicht uns — glaub ihnen.</p>
+            <h2 className="section-title">Was unsere Gäste sagen</h2>
+            <p className="section-sub">Echte Bewertungen. Echter Genuss.</p>
             <div className="divider-brand" />
           </div>
           <div className="grid md:grid-cols-3 gap-6 mt-4">

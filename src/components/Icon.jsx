@@ -79,10 +79,24 @@ const PATHS = {
   heart: (
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
   ),
+  pizza: (
+    <>
+      <path d="M12 3 20 20H4L12 3z" />
+      <circle cx="10.5" cy="14" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="13.5" cy="14" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="17" r="1.25" fill="currentColor" stroke="none" />
+    </>
+  ),
   award: (
     <>
       <circle cx="12" cy="8" r="7" />
       <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+    </>
+  ),
+  mountain: (
+    <>
+      <path d="M4 20 12 7l8 13H4z" />
+      <path d="M14 12l3-5 5 13h-5l-3-8z" />
     </>
   ),
   facebook: (
