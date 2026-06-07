@@ -59,6 +59,7 @@ export default function DeliveryMapPicker({
         return;
       }
       setStreetName(data.streetName || '');
+      setLocationBlocked(false);
       onStreetNameChangeRef.current(data.streetName || '');
       if (data.houseNumber) onHouseNumberChangeRef.current(data.houseNumber);
       onPinSetRef.current({ lat, lon: lng, postalCode: data.postalCode });
@@ -107,8 +108,12 @@ export default function DeliveryMapPicker({
       },
       (err) => {
         setLocating(false);
-        if (err.code === 1) setLocationBlocked(true);
-        setMapError(GEO_ERRORS[err.code] || 'Standort konnte nicht ermittelt werden.');
+        if (err.code === 1) {
+          setLocationBlocked(true);
+          setMapError('');
+        } else {
+          setMapError(GEO_ERRORS[err.code] || 'Standort konnte nicht ermittelt werden.');
+        }
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
@@ -147,6 +152,7 @@ export default function DeliveryMapPicker({
 
       setLoading(true);
       setMapError('');
+      setLocationBlocked(false);
       setStreetName('');
       onStreetNameChangeRef.current('');
       onHouseNumberChangeRef.current('');
@@ -212,9 +218,9 @@ export default function DeliveryMapPicker({
           ? 'Tippe oben auf den Button – der Browser fragt dann nach Standort-Erlaubnis. Oder setze den Pin manuell auf der Karte.'
           : 'Pin auf der Karte anpassen oder Hausnummer unten ergänzen.'}
       </p>
-      {locationBlocked && (
+      {locationBlocked && !streetName && (
         <p className="text-sm text-yellow-300/90 bg-yellow-500/10 border border-yellow-500/25 rounded-lg px-3 py-2">
-          Standort wurde blockiert. In den Browser-Einstellungen für diese Seite „Standort“ erlauben, oder die Karte antippen.
+          GPS wurde blockiert oder abgelehnt. Tippe auf die Karte um deine Straße zu wählen — oder erlaube „Standort“ in den Browser-Einstellungen für diese Seite.
         </p>
       )}
       <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800">
