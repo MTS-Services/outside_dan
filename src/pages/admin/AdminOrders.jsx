@@ -240,22 +240,31 @@ const PAYMENT_MAP = {
   ONLINE: 'Online',
 };
 
-function DriveTimeBadge({ info }) {
-  if (!info || info.loading) {
+function DriveTimeBadge({ info, showWhenMissing = false }) {
+  if (!info) {
+    return showWhenMissing ? <span className="text-[11px] text-white/30">Fahrzeit wird berechnet…</span> : null;
+  }
+  if (info.loading) {
     return <span className="text-[11px] text-white/30">Fahrzeit wird berechnet…</span>;
   }
   if (info.error) {
-    return <span className="text-[11px] text-white/40">Fahrzeit: {info.error}</span>;
+    return (
+      <span className="text-[11px] text-white/40">
+        Fahrzeit: {info.error}
+        {info.hint ? <span className="block text-white/30 mt-0.5">{info.hint}</span> : null}
+      </span>
+    );
   }
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${info.tooFar ? 'text-orange-300' : 'text-emerald-300/90'}`}>
-      <span>🚗 ca. {info.minutes} Min. ({info.distanceKm} km)</span>
+    <span className={`inline-flex flex-wrap items-center gap-1 text-[11px] font-semibold ${info.tooFar ? 'text-orange-300' : 'text-emerald-300/90'}`}>
+      <span>🚗 ca. {info.minutes} Min. ({info.distanceKm} km){info.approximate ? ' (geschätzt nach PLZ/Gebiet)' : ''}</span>
       {info.tooFar && <span className="text-orange-400">· Außerhalb Zone (max. {info.maxMinutes} Min.)</span>}
     </span>
   );
 }
 
-function Section({ title, accent, rows, onSearch, onPage, renderActions, driveTimes = {} }) {
+function Section({ title, accent, rows, onSearch, onPage, renderActions, driveTimes = null }) {
+  const showDriveTime = driveTimes != null;
   const totalPages = Math.max(1, Math.ceil((rows.total || 0) / PAGE_SIZE));
   return (
     <section className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
@@ -286,7 +295,9 @@ function Section({ title, accent, rows, onSearch, onPage, renderActions, driveTi
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate"><span className="text-white/50 font-normal mr-1">Kunde:</span>{o.customerName} <span className="mx-1 text-white/20">|</span> <span className="text-white/50 font-normal mr-1">Tel:</span>{o.customerPhone}</div>
               <div className="text-[11px] text-white/50 truncate mt-0.5"><span className="text-white/30 mr-1">Lieferadresse:</span>{o.street}, {formatDeliveryZone(o.postalCode, o.city)}</div>
-              <div className="mt-1"><DriveTimeBadge info={driveTimes[o.id]} /></div>
+              {showDriveTime && (
+                <div className="mt-1"><DriveTimeBadge info={driveTimes[o.id]} showWhenMissing /></div>
+              )}
 
               {o.acceptedBy && <div className="text-[11px] text-emerald-400/80 mt-2">Akzeptiert von: {o.acceptedBy.name}</div>}
               {o.acceptanceNote && <div className="text-[11px] text-emerald-300/70">Hinweis: {o.acceptanceNote}</div>}
