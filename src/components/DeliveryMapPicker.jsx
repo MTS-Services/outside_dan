@@ -13,6 +13,12 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const GEO_ERRORS = {
+  1: 'Standortzugriff verweigert. Bitte in den Browser-Einstellungen erlauben oder die Karte antippen.',
+  2: 'Standort konnte nicht ermittelt werden.',
+  3: 'Standortabfrage hat zu lange gedauert. Bitte erneut versuchen.',
+};
+
 export default function DeliveryMapPicker({
   zone,
   onStreetNameChange,
@@ -27,7 +33,10 @@ export default function DeliveryMapPicker({
   const onHouseNumberChangeRef = useRef(onHouseNumberChange);
   const onPinSetRef = useRef(onPinSet);
   const reverseAtRef = useRef(null);
+  const placePinAtRef = useRef(null);
+  const autoLocateDoneRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [mapError, setMapError] = useState('');
   const [streetName, setStreetName] = useState('');
 
@@ -63,7 +72,45 @@ export default function DeliveryMapPicker({
     }
   }, []);
 
+  const placePinAt = useCallback((lat, lng, { pan = true } = {}) => {
+    const map = mapInstance.current;
+    if (!map) return;
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    } else {
+      const m = L.marker([lat, lng], { draggable: true }).addTo(map);
+      m.on('dragend', () => {
+        const pos = m.getLatLng();
+        reverseAtRef.current?.(pos.lat, pos.lng);
+      });
+      markerRef.current = m;
+    }
+    if (pan) map.setView([lat, lng], Math.max(map.getZoom(), 16));
+    reverseAtRef.current?.(lat, lng);
+  }, []);
+
   reverseAtRef.current = reverseAt;
+  placePinAtRef.current = placePinAt;
+
+  const requestUserLocation = useCallback(({ silent = false } = {}) => {
+    if (!navigator.geolocation) {
+      if (!silent) setMapError('Standort ist in diesem Browser nicht verfügbar. Bitte die Karte antippen.');
+      return;
+    }
+    setLocating(true);
+    if (!silent) setMapError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        placePinAtRef.current?.(pos.coords.latitude, pos.coords.longitude);
+      },
+      (err) => {
+        setLocating(false);
+        if (!silent) setMapError(GEO_ERRORS[err.code] || 'Standort konnte nicht ermittelt werden.');
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+    );
+  }, []);
 
   // Init map only after zone is selected and the container is in the DOM
   useEffect(() => {
@@ -86,19 +133,7 @@ export default function DeliveryMapPicker({
         }).addTo(map);
 
         map.on('click', (e) => {
-          const lat = e.latlng.lat;
-          const lng = e.latlng.lng;
-          if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
-          } else {
-            const m = L.marker([lat, lng], { draggable: true }).addTo(map);
-            m.on('dragend', () => {
-              const pos = m.getLatLng();
-              reverseAtRef.current?.(pos.lat, pos.lng);
-            });
-            markerRef.current = m;
-          }
-          reverseAtRef.current?.(lat, lng);
+          placePinAtRef.current?.(e.latlng.lat, e.latlng.lng);
         });
 
         mapInstance.current = map;
@@ -127,6 +162,12 @@ export default function DeliveryMapPicker({
           if (cancelled || !mapInstance.current) return;
           mapInstance.current.setView([data.lat, data.lon], 14);
           requestAnimationFrame(() => mapInstance.current?.invalidateSize());
+
+          // Auto-detect location once per zone (browser asks permission)
+          if (autoLocateDoneRef.current !== zone.id) {
+            autoLocateDoneRef.current = zone.id;
+            setTimeout(() => requestUserLocation({ silent: true }), 400);
+          }
         })
         .catch(() => {
           if (!cancelled) setMapError('Karte für dieses Gebiet konnte nicht geladen werden.');
@@ -134,16 +175,14 @@ export default function DeliveryMapPicker({
         .finally(() => { if (!cancelled) setLoading(false); });
     };
 
-    // Defer until React has painted the map container
     const t = setTimeout(init, 0);
 
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [zone?.id]);
+  }, [zone?.id, requestUserLocation]);
 
-  // Destroy map on unmount
   useEffect(() => () => {
     mapInstance.current?.remove();
     mapInstance.current = null;
@@ -161,7 +200,8 @@ export default function DeliveryMapPicker({
   return (
     <div className="space-y-3">
       <p className="text-sm text-white/60">
-        Tippe auf die Karte, um deine Straße zu wählen. Danach nur noch die Hausnummer eintragen.
+        Wir versuchen deinen Standort automatisch zu erkennen (Browser fragt nach Erlaubnis).
+        Alternativ: Karte antippen oder unten den Standort-Button nutzen.
       </p>
       <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800">
         <div
@@ -169,9 +209,17 @@ export default function DeliveryMapPicker({
           className="delivery-map h-72 sm:h-96 md:h-[28rem] w-full"
           style={{ minHeight: '18rem' }}
         />
-        {loading && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-sm text-white/80 z-[500] pointer-events-none">
-            Wird geladen…
+        <button
+          type="button"
+          onClick={() => requestUserLocation()}
+          disabled={loading || locating}
+          className="absolute top-3 right-3 z-[500] px-3 py-2 rounded-lg bg-brand-500 text-ink-900 text-xs font-bold shadow-lg hover:bg-brand-400 transition disabled:opacity-50"
+        >
+          {locating ? 'Standort…' : '📍 Mein Standort'}
+        </button>
+        {(loading || locating) && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-sm text-white/80 z-[400] pointer-events-none">
+            {locating ? 'Standort wird ermittelt…' : 'Wird geladen…'}
           </div>
         )}
       </div>
