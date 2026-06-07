@@ -34,7 +34,8 @@ export default function AdminDeliveryZones() {
   }
 
   async function remove(z) {
-    if (!window.confirm(`Zone "${z.postalCode}" löschen?`)) return;
+    const name = z.label ? `${z.postalCode} ${z.label}` : z.postalCode;
+    if (!window.confirm(`Zone "${name}" löschen?`)) return;
     setBusyId(z.id);
     try {
       await api.delete(`/delivery-zones/${z.id}`);
@@ -49,7 +50,9 @@ export default function AdminDeliveryZones() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl">Lieferzonen</h1>
-          <p className="text-white/50 text-sm mt-1">Postleitzahlen mit Liefergebühr und Mindestbestellung verwalten.</p>
+          <p className="text-white/50 text-sm mt-1">
+            Liefergebiete verwalten. Dieselbe PLZ kann mehrfach vorkommen (z.&nbsp;B. 8770 St. Michael und 8770 Liesingtal).
+          </p>
         </div>
         <button onClick={() => setEditing({})} className="btn-primary shrink-0">+ Zone hinzufügen</button>
       </div>
@@ -64,7 +67,7 @@ export default function AdminDeliveryZones() {
               <thead className="bg-white/[0.04] text-white/50 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="px-5 py-3 text-left font-medium">Postleitzahl</th>
-                  <th className="px-5 py-3 text-left font-medium">Bezeichnung</th>
+                  <th className="px-5 py-3 text-left font-medium">Gebiet / Ortsteil</th>
                   <th className="px-5 py-3 text-left font-medium">Liefergebühr (€)</th>
                   <th className="px-5 py-3 text-left font-medium">Mindestbestellung (€)</th>
                   <th className="px-5 py-3 text-left font-medium">Aktiv</th>
@@ -81,7 +84,7 @@ export default function AdminDeliveryZones() {
                 ) : zones.map((z) => (
                   <tr key={z.id} className="hover:bg-white/[0.02] transition">
                     <td className="px-5 py-3 font-mono font-semibold text-white">{z.postalCode}</td>
-                    <td className="px-5 py-3 text-white/70">{z.label || <span className="text-white/30">–</span>}</td>
+                    <td className="px-5 py-3 text-white/70">{z.label?.trim() ? z.label : <span className="text-white/30">–</span>}</td>
                     <td className="px-5 py-3">€ {Number(z.deliveryFee).toFixed(2)}</td>
                     <td className="px-5 py-3">
                       {Number(z.minimumOrder) > 0 ? `€ ${Number(z.minimumOrder).toFixed(2)}` : <span className="text-white/30">–</span>}
@@ -184,7 +187,7 @@ function ZoneEditor({ zone, onClose, onSaved }) {
     try {
       const payload = {
         postalCode: form.postalCode.trim(),
-        label: form.label.trim() || null,
+        label: form.label.trim(),
         deliveryFee: Number(form.deliveryFee),
         minimumOrder: Number(form.minimumOrder) || 0,
         isActive: form.isActive,
@@ -201,6 +204,9 @@ function ZoneEditor({ zone, onClose, onSaved }) {
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <form onSubmit={submit} className="w-full max-w-md bg-[#111318] border border-white/10 rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <h3 className="font-display text-2xl">{zone ? 'Zone bearbeiten' : 'Neue Lieferzone'}</h3>
+        <p className="text-white/50 text-sm">
+          Für dieselbe PLZ mehrere Gebiete anlegen, wenn nur bestimmte Ortsteile beliefert werden.
+        </p>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="block">
@@ -214,12 +220,13 @@ function ZoneEditor({ zone, onClose, onSaved }) {
             />
           </label>
           <label className="block">
-            <span className="label">Bezeichnung</span>
+            <span className="label">Gebiet / Ortsteil *</span>
             <input
               className="input"
+              required
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
-              placeholder="z.B. Wien 1. Bezirk"
+              placeholder="z.B. St. Michael, Liesingtal, Wien 1. Bezirk"
             />
           </label>
         </div>

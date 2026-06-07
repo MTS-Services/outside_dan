@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { COUNTRIES } from '../../data/countries';
 import FlagIcon from '../../components/FlagIcon';
+import { formatDeliveryZone } from '../../utils/deliveryZone';
 
 const STATUS_LABEL = {
   PENDING_PAYMENT: 'Zahlung ausstehend',
@@ -182,7 +183,7 @@ function OrderCard({ order: o }) {
             {o.street && (
               <span className="text-xs text-white/40">
                 <span className="text-white/25 mr-1">Adresse</span>
-                {o.street}{o.city ? `, ${o.postalCode} ${o.city}` : ''}
+                {o.street}{o.postalCode ? `, ${formatDeliveryZone(o.postalCode, o.city)}` : ''}
               </span>
             )}
           </div>

@@ -21,6 +21,7 @@ const DEFAULT = {
   restaurant_facebook: '',
   restaurant_instagram: '',
   maps_url: '',
+  max_delivery_minutes: '45',
   orders_accepted: true,
   news_banner_enabled: false,
   news_banner_text: '',
@@ -184,6 +185,21 @@ export default function AdminSettings() {
           <label className="block">
             <span className="label">Google Maps URL</span>
             <input className="input" value={form.maps_url} onChange={set('maps_url')} placeholder="https://maps.google.com/?q=..." />
+          </label>
+          <label className="block">
+            <span className="label">Max. Fahrzeit für Lieferungen (Minuten)</span>
+            <input
+              className="input"
+              type="number"
+              min="5"
+              max="180"
+              value={form.max_delivery_minutes}
+              onChange={set('max_delivery_minutes')}
+              placeholder="45"
+            />
+            <p className="text-xs text-white/40 mt-1">
+              Bestellungen mit längerer Fahrzeit werden in der Bestellübersicht als „außerhalb der Lieferzone“ markiert.
+            </p>
           </label>
         </div>
 

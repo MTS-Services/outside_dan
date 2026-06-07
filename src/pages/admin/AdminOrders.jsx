@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
 import { getSocket } from '../../api/socket';
+import { formatDeliveryZone } from '../../utils/deliveryZone';
 
 const PAGE_SIZE = 8;
 const NEW_STATUSES = ['PENDING'];
@@ -19,6 +20,18 @@ export default function AdminOrders() {
 
   const [promptModal, setPromptModal] = useState({ open: false, title: '', defaultVal: '', onConfirm: null });
   const [viewOrder, setViewOrder] = useState(null);
+  const [driveTimes, setDriveTimes] = useState({});
+
+  const fetchDriveTime = async (orderId) => {
+    if (driveTimes[orderId]?.loading || driveTimes[orderId]?.minutes != null || driveTimes[orderId]?.error) return;
+    setDriveTimes((prev) => ({ ...prev, [orderId]: { loading: true } }));
+    try {
+      const { data } = await api.get(`/orders/${orderId}/drive-time`);
+      setDriveTimes((prev) => ({ ...prev, [orderId]: data }));
+    } catch (e) {
+      setDriveTimes((prev) => ({ ...prev, [orderId]: { error: e.displayMessage || 'Fahrzeit nicht verfügbar' } }));
+    }
+  };
 
   const fetchNew = async (page = 1, search = '', showInitialToast = false) => {
     const { data } = await api.get('/orders', {
@@ -76,6 +89,16 @@ export default function AdminOrders() {
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    newRows.items.forEach((o) => { fetchDriveTime(o.id); });
+    // eslint-disable-next-line
+  }, [newRows.items]);
+
+  useEffect(() => {
+    if (viewOrder?.id) fetchDriveTime(viewOrder.id);
+    // eslint-disable-next-line
+  }, [viewOrder?.id]);
+
   async function call(orderId, fn) {
     setBusyId(orderId);
     try { await fn(); }
@@ -96,15 +119,16 @@ export default function AdminOrders() {
     fetchAcc(1, accRows.search);
     fetchDec(1, decRows.search);
   });
-  const decline = (o) => call(o.id, async () => {
-    const reason = await openPrompt('Grund für Ablehnung (wird dem Kunden gezeigt):', '');
+  const decline = (o, presetReason = '') => call(o.id, async () => {
+    const reason = presetReason || await openPrompt('Grund für Ablehnung (wird dem Kunden gezeigt):', '');
     if (reason === null || !reason.trim()) return;
-    await api.post(`/orders/${o.id}/decline`, { reason });
+    await api.post(`/orders/${o.id}/decline`, { reason: reason.trim() });
     toast('Bestellung abgelehnt', { icon: '🚫' });
     fetchNew(newRows.page, newRows.search);
     fetchAcc(1, accRows.search);
     fetchDec(1, decRows.search);
   });
+  const declineOutsideZone = (o) => decline(o, 'Außerhalb unserer Lieferzone');
   const setStatus = (o, status) => call(o.id, async () => {
     await api.post(`/orders/${o.id}/status`, { status });
     fetchAcc(accRows.page, accRows.search);
@@ -134,9 +158,13 @@ export default function AdminOrders() {
         busyId={busyId}
         onSearch={(s) => fetchNew(1, s)}
         onPage={(p) => fetchNew(p, newRows.search)}
+        driveTimes={driveTimes}
         renderActions={(o) => (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Pill onClick={() => setViewOrder(o)} className="bg-white/10 text-white/80 border-white/20">Ansehen</Pill>
+            {driveTimes[o.id]?.tooFar && (
+              <Pill onClick={() => declineOutsideZone(o)} disabled={busyId === o.id} className="bg-orange-500/15 text-orange-300 border-orange-500/30">Außerhalb Zone</Pill>
+            )}
             <Pill onClick={() => decline(o)} disabled={busyId === o.id} className="bg-red-500/15 text-red-400 border-red-500/25">Ablehnen</Pill>
             <Pill onClick={() => accept(o)} disabled={busyId === o.id} className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Akzeptieren</Pill>
           </div>
@@ -180,6 +208,8 @@ export default function AdminOrders() {
 
       <OrderDetailsModal
         order={viewOrder}
+        driveInfo={viewOrder ? driveTimes[viewOrder.id] : null}
+        onDeclineOutsideZone={viewOrder ? () => declineOutsideZone(viewOrder) : null}
         onClose={() => setViewOrder(null)}
       />
     </div>
@@ -210,7 +240,22 @@ const PAYMENT_MAP = {
   ONLINE: 'Online',
 };
 
-function Section({ title, accent, rows, onSearch, onPage, renderActions }) {
+function DriveTimeBadge({ info }) {
+  if (!info || info.loading) {
+    return <span className="text-[11px] text-white/30">Fahrzeit wird berechnet…</span>;
+  }
+  if (info.error) {
+    return <span className="text-[11px] text-white/40">Fahrzeit: {info.error}</span>;
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${info.tooFar ? 'text-orange-300' : 'text-emerald-300/90'}`}>
+      <span>🚗 ca. {info.minutes} Min. ({info.distanceKm} km)</span>
+      {info.tooFar && <span className="text-orange-400">· Außerhalb Zone (max. {info.maxMinutes} Min.)</span>}
+    </span>
+  );
+}
+
+function Section({ title, accent, rows, onSearch, onPage, renderActions, driveTimes = {} }) {
   const totalPages = Math.max(1, Math.ceil((rows.total || 0) / PAGE_SIZE));
   return (
     <section className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
@@ -240,7 +285,8 @@ function Section({ title, accent, rows, onSearch, onPage, renderActions }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate"><span className="text-white/50 font-normal mr-1">Kunde:</span>{o.customerName} <span className="mx-1 text-white/20">|</span> <span className="text-white/50 font-normal mr-1">Tel:</span>{o.customerPhone}</div>
-              <div className="text-[11px] text-white/50 truncate mt-0.5"><span className="text-white/30 mr-1">Lieferadresse:</span>{o.street}, {o.postalCode} {o.city}</div>
+              <div className="text-[11px] text-white/50 truncate mt-0.5"><span className="text-white/30 mr-1">Lieferadresse:</span>{o.street}, {formatDeliveryZone(o.postalCode, o.city)}</div>
+              <div className="mt-1"><DriveTimeBadge info={driveTimes[o.id]} /></div>
 
               {o.acceptedBy && <div className="text-[11px] text-emerald-400/80 mt-2">Akzeptiert von: {o.acceptedBy.name}</div>}
               {o.acceptanceNote && <div className="text-[11px] text-emerald-300/70">Hinweis: {o.acceptanceNote}</div>}
@@ -302,7 +348,7 @@ function PromptModal({ open, title, defaultVal, onConfirm }) {
   );
 }
 
-function OrderDetailsModal({ order, onClose }) {
+function OrderDetailsModal({ order, driveInfo, onDeclineOutsideZone, onClose }) {
   if (!order) return null;
 
   return createPortal(
@@ -323,8 +369,24 @@ function OrderDetailsModal({ order, onClose }) {
                 <div className="flex justify-between"><span className="text-white/50">Telefon</span> <span>{order.customerPhone}</span></div>
                 {order.customerEmail && <div className="flex justify-between"><span className="text-white/50">E-Mail</span> <span>{order.customerEmail}</span></div>}
                 <div className="flex justify-between"><span className="text-white/50">Straße</span> <span>{order.street}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">PLZ</span> <span>{order.postalCode}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Stadt</span> <span>{order.city}</span></div>
+                <div className="flex justify-between"><span className="text-white/50">Lieferzone</span> <span className="font-mono">{formatDeliveryZone(order.postalCode, order.city)}</span></div>
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <DriveTimeBadge info={driveInfo} />
+                  {driveInfo?.mapsUrl && (
+                    <a href={driveInfo.mapsUrl} target="_blank" rel="noreferrer" className="inline-block mt-2 text-xs text-brand-400 hover:text-brand-300">
+                      Route in Google Maps öffnen →
+                    </a>
+                  )}
+                  {driveInfo?.tooFar && onDeclineOutsideZone && (
+                    <button
+                      type="button"
+                      onClick={onDeclineOutsideZone}
+                      className="mt-3 w-full py-2 rounded-lg bg-orange-500/15 text-orange-300 border border-orange-500/30 text-sm font-semibold hover:bg-orange-500/25 transition"
+                    >
+                      Ablehnen: Außerhalb unserer Lieferzone
+                    </button>
+                  )}
+                </div>
                 {order.notes && (
                    <div className="mt-3 pt-3 border-t border-white/10 text-yellow-400">
                      <span className="font-semibold block mb-1">Liefernotiz:</span>

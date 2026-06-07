@@ -17,6 +17,7 @@ const initial = {
   street: '',
   city: 'Wien',
   postalCode: '',
+  deliveryZoneId: '',
   notes: '',
   paymentMethod: 'CASH',
 };
@@ -135,12 +136,13 @@ export default function Checkout() {
   }
 
   const sub = subtotal();
-  // useMemo ensures selectedZone/fee are always in sync with zones + postalCode
   const selectedZone = useMemo(
-    () => zones.find((z) => z.postalCode === form.postalCode) || null,
-    [zones, form.postalCode]
+    () => zones.find((z) => z.id === form.deliveryZoneId) || null,
+    [zones, form.deliveryZoneId]
   );
   const fee = selectedZone ? Number(selectedZone.deliveryFee) : 0;
+  const minimumOrder = selectedZone ? Number(selectedZone.minimumOrder) : 0;
+  const belowMinimum = minimumOrder > 0 && sub < minimumOrder;
   const discount = coupon ? Number(coupon.discount) : 0;
   const total = sub + fee - discount;
   // VAT 10% is included in product prices (food/beverage for delivery in AT)
@@ -151,6 +153,7 @@ export default function Checkout() {
     form.customerName.trim() !== '' &&
     form.customerPhone.trim() !== '' &&
     form.street.trim() !== '' &&
+    form.deliveryZoneId !== '' &&
     form.postalCode.trim() !== '' &&
     form.city.trim() !== '';
 
@@ -164,6 +167,7 @@ export default function Checkout() {
     street: form.street,
     city: form.city,
     postalCode: form.postalCode,
+    deliveryZoneId: form.deliveryZoneId || null,
     notes: form.notes,
     paymentMethod,
     paypalOrderId,
@@ -207,8 +211,13 @@ export default function Checkout() {
     if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
     if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
     if (form.street.trim().length < 3) { toast.error('Straße ist erforderlich (min. 3 Zeichen)'); return false; }
+    if (!form.deliveryZoneId) { toast.error('Bitte wähle eine Lieferzone aus'); return false; }
     if (form.postalCode.trim().length < 2) { toast.error('Postleitzahl ist erforderlich'); return false; }
     if (!form.city.trim()) { toast.error('Stadt ist erforderlich'); return false; }
+    if (belowMinimum) {
+      toast.error(`Mindestbestellwert: €${minimumOrder.toFixed(2)} (aktuell €${sub.toFixed(2)})`);
+      return false;
+    }
     return true;
   }
 
@@ -291,7 +300,7 @@ export default function Checkout() {
     return () => {
       try { buttons.close(); } catch { /* ignore */ }
     };
-  }, [form.paymentMethod, paypalReady, total, items, form.customerName, form.customerPhone, form.street, form.postalCode, form.city]); // re-render on relevant changes
+  }, [form.paymentMethod, paypalReady, total, items, form.customerName, form.customerPhone, form.street, form.deliveryZoneId, form.postalCode, form.city]); // re-render on relevant changes
 
   if (!items.length) {
     return (
@@ -339,16 +348,24 @@ export default function Checkout() {
             <input className="input" required value={form.street} onChange={update('street')} />
           </Field>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Postleitzahl *">
+            <Field label="Lieferzone *">
               <select
                 className="input"
                 required
-                value={form.postalCode}
-                onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                value={form.deliveryZoneId}
+                onChange={(e) => {
+                  const zone = zones.find((z) => z.id === e.target.value);
+                  setForm({
+                    ...form,
+                    deliveryZoneId: e.target.value,
+                    postalCode: zone?.postalCode || '',
+                    city: zone?.label?.trim() || form.city,
+                  });
+                }}
               >
                 <option value="">{zonesLoading ? 'Wird geladen' : 'Auswählen'}</option>
                 {zones.map((z) => (
-                  <option key={z.id} value={z.postalCode}>
+                  <option key={z.id} value={z.id}>
                     {z.postalCode}{z.label ? ` – ${z.label}` : ''}
                   </option>
                 ))}
@@ -431,6 +448,12 @@ export default function Checkout() {
                   <span>−€{discount.toFixed(2)}</span>
                 </div>
               )}
+              {minimumOrder > 0 && (
+                <div className={`text-sm ${belowMinimum ? 'text-red-400' : 'text-white/50'}`}>
+                  Mindestbestellwert: €{minimumOrder.toFixed(2)}
+                  {belowMinimum && ` (noch €${(minimumOrder - sub).toFixed(2)} fehlen)`}
+                </div>
+              )}
               <div className="flex justify-between font-bold text-xl pt-2 border-t border-white/10">
                 <span>Summe</span>
                 <span className="text-brand-500">€{total.toFixed(2)}</span>
@@ -482,7 +505,7 @@ export default function Checkout() {
               </div>
             ) : (
               <button
-                disabled={submitting || zonesLoading || couponApplying}
+                disabled={submitting || zonesLoading || couponApplying || belowMinimum || !form.deliveryZoneId}
                 type="submit"
                 className="btn-primary w-full justify-center py-4 text-lg shadow-brand disabled:opacity-60 transition-all"
               >

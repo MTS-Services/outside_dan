@@ -81,34 +81,47 @@ export default function Contact() {
         )}
         <div className="absolute inset-0 bg-ink-900/80" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center w-full">
-          <span className="contact-hero-anim chip bg-brand-500/20 text-brand-300 mb-4 inline-block">Schreib uns</span>
+          <span className="contact-hero-anim chip bg-brand-500/20 text-brand-300 mb-4 inline-block">Wir sind für dich da</span>
           <h1 className="contact-hero-anim font-display text-6xl md:text-7xl mt-3">KONTAKT</h1>
-          <p className="contact-hero-anim text-white/60 mt-4 text-lg">Wir freuen uns auf deine Nachricht.</p>
+          <p className="contact-hero-anim text-white/60 mt-4 text-lg max-w-2xl mx-auto">
+            Ob Reservierung, Bestellung oder Fragen – wir freuen uns auf deine Nachricht.
+          </p>
         </div>
       </section>
 
       {/* INFO CARDS */}
-      <section className="info-grid max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {[
-          { icon: 'pin',   label: 'Adresse',  lines: (siteSettings.restaurant_address || 'Musterstraße 1, 1010 Wien, Österreich').split(',') },
-          { icon: 'phone', label: 'Telefon',  lines: [siteSettings.restaurant_phone || '+43 1 234 5678'] },
-          { icon: 'mail',  label: 'E-Mail',   lines: [siteSettings.restaurant_email || 'hallo@rockin-rumble.com'] },
-          { icon: 'clock', label: 'Öffnungszeiten', lines: (() => {
-            let h = siteSettings.opening_hours;
-            if (!h) return ['Mo–So 12:00–22:00'];
-            if (typeof h === 'string') { try { h = JSON.parse(h); } catch { return [h]; } }
-            const first = h.find((x) => !x.closed);
-            if (!first) return ['Heute geschlossen'];
-            const t = Array.isArray(first.times) ? first.times[0] : first.time;
-            return [`${first.day} ${t || ''}`];
-          })() },
-        ].map((c) => (
+      <section className="info-grid max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {(() => {
+          const address = siteSettings.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach';
+          const addressLines = address.split(',').map((l) => l.trim()).filter(Boolean);
+          return [
+            {
+              icon: 'pin',
+              label: 'Adresse',
+              lines: addressLines.length ? addressLines : ['Sonnenweg 11', '8793 Trofaiach'],
+              hint: 'Restaurant am Golfplatz Trofaiach',
+            },
+            {
+              icon: 'phone',
+              label: 'Telefon',
+              lines: [siteSettings.restaurant_phone || '+43 676 632 86 77'],
+              hint: 'Für Reservierungen und Anfragen',
+            },
+            {
+              icon: 'mail',
+              label: 'E-Mail',
+              lines: [siteSettings.restaurant_email || 'reservierung@tarantella.at'],
+              hint: 'Wir antworten so schnell wie möglich.',
+            },
+          ];
+        })().map((c) => (
           <div key={c.label} className="info-card card p-6 flex flex-col items-center text-center hover:border-brand-500/30 transition-colors">
             <div className="w-14 h-14 grid place-items-center rounded-2xl bg-brand-500/15 border border-brand-500/20 text-brand-400 mb-4">
               <Icon name={c.icon} className="w-7 h-7" />
             </div>
             <div className="text-xs uppercase tracking-widest text-brand-400 mb-2">{c.label}</div>
-            {c.lines.map((l) => <div key={l} className="text-white/80 font-medium">{l.trim()}</div>)}
+            {c.lines.map((l) => <div key={l} className="text-white/80 font-medium">{l}</div>)}
+            {c.hint && <p className="text-white/50 text-sm mt-2 leading-relaxed">{c.hint}</p>}
           </div>
         ))}
       </section>
@@ -154,7 +167,7 @@ export default function Contact() {
                 required
                 value={form.message}
                 onChange={update('message')}
-                placeholder="Wie können wir helfen?…"
+                placeholder="Deine Nachricht an uns …"
               />
             </label>
             <button disabled={sending} className="btn-primary w-full py-3 text-base">
@@ -216,16 +229,16 @@ export default function Contact() {
         <div className="relative">
           <iframe
             title="Standort"
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(siteSettings.restaurant_address || 'Wien, Österreich')}&output=embed&z=18&t=k`}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(siteSettings.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach')}&output=embed&z=18&t=k`}
             className="w-full h-[500px] border-0 block"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-ink-900/90 backdrop-blur-sm border border-white/10 rounded-xl px-5 py-3 shadow-xl">
             <Icon name="pin" className="w-4 h-4 text-brand-400 shrink-0" />
-            <span className="text-sm text-white/80">{siteSettings.restaurant_address || 'Musterstraße 1, 1010 Wien'}</span>
+            <span className="text-sm text-white/80">{siteSettings.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach'}</span>
             <a
-              href={siteSettings.maps_url || `https://maps.google.com/?q=${encodeURIComponent(siteSettings.restaurant_address || 'Wien, Österreich')}`}
+              href={siteSettings.maps_url || `https://maps.google.com/?q=${encodeURIComponent(siteSettings.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach')}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-primary text-sm py-1.5 px-4 shrink-0"

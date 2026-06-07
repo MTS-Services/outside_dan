@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { getSocket } from '../api/socket';
+import { formatDeliveryZone } from '../utils/deliveryZone';
 
 const STEPS = ['PENDING', 'ACCEPTED'];
 const LABELS = {
@@ -137,6 +138,14 @@ export default function OrderTracking() {
           </ol>
         </div>
       )}
+
+      <div className="card p-6 mb-6">
+        <h3 className="text-2xl mb-3 font-display">Lieferadresse</h3>
+        <div className="text-sm text-white/80 space-y-1">
+          <div>{order.street}</div>
+          <div className="font-mono">{formatDeliveryZone(order.postalCode, order.city)}</div>
+        </div>
+      </div>
 
       <div className="card p-6">
         <h3 className="text-2xl mb-4 font-display">Bestelldetails</h3>
