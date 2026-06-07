@@ -34,11 +34,11 @@ export default function DeliveryMapPicker({
   const onPinSetRef = useRef(onPinSet);
   const reverseAtRef = useRef(null);
   const placePinAtRef = useRef(null);
-  const autoLocateDoneRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [mapError, setMapError] = useState('');
   const [streetName, setStreetName] = useState('');
+  const [locationBlocked, setLocationBlocked] = useState(false);
 
   zoneRef.current = zone;
   onStreetNameChangeRef.current = onStreetNameChange;
@@ -92,13 +92,14 @@ export default function DeliveryMapPicker({
   reverseAtRef.current = reverseAt;
   placePinAtRef.current = placePinAt;
 
-  const requestUserLocation = useCallback(({ silent = false } = {}) => {
+  const requestUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      if (!silent) setMapError('Standort ist in diesem Browser nicht verfügbar. Bitte die Karte antippen.');
+      setMapError('Standort ist in diesem Browser nicht verfügbar. Bitte die Karte antippen.');
       return;
     }
     setLocating(true);
-    if (!silent) setMapError('');
+    setMapError('');
+    setLocationBlocked(false);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
@@ -106,9 +107,10 @@ export default function DeliveryMapPicker({
       },
       (err) => {
         setLocating(false);
-        if (!silent) setMapError(GEO_ERRORS[err.code] || 'Standort konnte nicht ermittelt werden.');
+        if (err.code === 1) setLocationBlocked(true);
+        setMapError(GEO_ERRORS[err.code] || 'Standort konnte nicht ermittelt werden.');
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   }, []);
 
@@ -162,12 +164,6 @@ export default function DeliveryMapPicker({
           if (cancelled || !mapInstance.current) return;
           mapInstance.current.setView([data.lat, data.lon], 14);
           requestAnimationFrame(() => mapInstance.current?.invalidateSize());
-
-          // Auto-detect location once per zone (browser asks permission)
-          if (autoLocateDoneRef.current !== zone.id) {
-            autoLocateDoneRef.current = zone.id;
-            setTimeout(() => requestUserLocation({ silent: true }), 400);
-          }
         })
         .catch(() => {
           if (!cancelled) setMapError('Karte für dieses Gebiet konnte nicht geladen werden.');
@@ -181,7 +177,7 @@ export default function DeliveryMapPicker({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [zone?.id, requestUserLocation]);
+  }, [zone?.id]);
 
   useEffect(() => () => {
     mapInstance.current?.remove();
@@ -197,12 +193,30 @@ export default function DeliveryMapPicker({
     );
   }
 
+  const needsLocation = !streetName && !locating;
+
   return (
     <div className="space-y-3">
+      {needsLocation && (
+        <button
+          type="button"
+          onClick={requestUserLocation}
+          disabled={loading || locating}
+          className="w-full py-4 px-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-ink-900 font-bold text-base shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {locating ? 'Standort wird ermittelt…' : '📍 Standort erlauben – Straße automatisch finden'}
+        </button>
+      )}
       <p className="text-sm text-white/60">
-        Wir versuchen deinen Standort automatisch zu erkennen (Browser fragt nach Erlaubnis).
-        Alternativ: Karte antippen oder unten den Standort-Button nutzen.
+        {needsLocation
+          ? 'Tippe oben auf den Button – der Browser fragt dann nach Standort-Erlaubnis. Oder setze den Pin manuell auf der Karte.'
+          : 'Pin auf der Karte anpassen oder Hausnummer unten ergänzen.'}
       </p>
+      {locationBlocked && (
+        <p className="text-sm text-yellow-300/90 bg-yellow-500/10 border border-yellow-500/25 rounded-lg px-3 py-2">
+          Standort wurde blockiert. In den Browser-Einstellungen für diese Seite „Standort“ erlauben, oder die Karte antippen.
+        </p>
+      )}
       <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800">
         <div
           ref={mapRef}
@@ -211,11 +225,11 @@ export default function DeliveryMapPicker({
         />
         <button
           type="button"
-          onClick={() => requestUserLocation()}
+          onClick={requestUserLocation}
           disabled={loading || locating}
-          className="absolute top-3 right-3 z-[500] px-3 py-2 rounded-lg bg-brand-500 text-ink-900 text-xs font-bold shadow-lg hover:bg-brand-400 transition disabled:opacity-50"
+          className="absolute top-3 right-3 z-[500] px-3 py-2 rounded-lg bg-white/90 text-ink-900 text-xs font-bold shadow-lg hover:bg-white transition disabled:opacity-50"
         >
-          {locating ? 'Standort…' : '📍 Mein Standort'}
+          {locating ? '…' : '📍 GPS'}
         </button>
         {(loading || locating) && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-sm text-white/80 z-[400] pointer-events-none">
