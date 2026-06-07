@@ -7,6 +7,7 @@ import { useAuth } from '../store/auth';
 import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import { subscribeToPush, isPushSubscribed } from '../api/push';
 import PhoneInput from '../components/PhoneInput';
+import DeliveryMapPicker from '../components/DeliveryMapPicker';
 import { findCountry } from '../data/countries';
 
 const initial = {
@@ -14,10 +15,12 @@ const initial = {
   customerPhone: '',
   customerPhoneCountry: 'AT',
   customerEmail: '',
-  street: '',
-  city: 'Wien',
+  streetName: '',
+  houseNumber: '',
+  city: '',
   postalCode: '',
   deliveryZoneId: '',
+  pinSet: false,
   notes: '',
   paymentMethod: 'CASH',
 };
@@ -149,11 +152,15 @@ export default function Checkout() {
   // Delivery is 0% VAT — so VAT is calculated on subtotal only
   const vatAmount = sub * 0.10 / 1.10;
 
+  const fullStreet = [form.streetName.trim(), form.houseNumber.trim()].filter(Boolean).join(' ');
+
   const infoComplete =
     form.customerName.trim() !== '' &&
     form.customerPhone.trim() !== '' &&
-    form.street.trim() !== '' &&
     form.deliveryZoneId !== '' &&
+    form.pinSet &&
+    form.streetName.trim() !== '' &&
+    form.houseNumber.trim() !== '' &&
     form.postalCode.trim() !== '' &&
     form.city.trim() !== '';
 
@@ -164,7 +171,7 @@ export default function Checkout() {
     customerPhone: `${findCountry(form.customerPhoneCountry).dial} ${form.customerPhone}`.trim(),
     customerPhoneCountry: form.customerPhoneCountry,
     customerEmail: form.customerEmail,
-    street: form.street,
+    street: fullStreet,
     city: form.city,
     postalCode: form.postalCode,
     deliveryZoneId: form.deliveryZoneId || null,
@@ -210,10 +217,10 @@ export default function Checkout() {
     if (!items.length) { toast.error('Warenkorb ist leer'); return false; }
     if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
     if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
-    if (form.street.trim().length < 3) { toast.error('Straße ist erforderlich (min. 3 Zeichen)'); return false; }
     if (!form.deliveryZoneId) { toast.error('Bitte wähle eine Lieferzone aus'); return false; }
-    if (form.postalCode.trim().length < 2) { toast.error('Postleitzahl ist erforderlich'); return false; }
-    if (!form.city.trim()) { toast.error('Stadt ist erforderlich'); return false; }
+    if (!form.pinSet || !form.streetName.trim()) { toast.error('Bitte wähle deine Straße auf der Karte'); return false; }
+    if (!form.houseNumber.trim()) { toast.error('Hausnummer ist erforderlich'); return false; }
+    if (fullStreet.length < 3) { toast.error('Adresse ist unvollständig'); return false; }
     if (belowMinimum) {
       toast.error(`Mindestbestellwert: €${minimumOrder.toFixed(2)} (aktuell €${sub.toFixed(2)})`);
       return false;
@@ -300,7 +307,7 @@ export default function Checkout() {
     return () => {
       try { buttons.close(); } catch { /* ignore */ }
     };
-  }, [form.paymentMethod, paypalReady, total, items, form.customerName, form.customerPhone, form.street, form.deliveryZoneId, form.postalCode, form.city]); // re-render on relevant changes
+  }, [form.paymentMethod, paypalReady, total, items, form.customerName, form.customerPhone, form.streetName, form.houseNumber, form.deliveryZoneId, form.postalCode, form.city, form.pinSet]); // re-render on relevant changes
 
   if (!items.length) {
     return (
@@ -344,37 +351,52 @@ export default function Checkout() {
           </Field>
 
           <h3 className="text-2xl pt-4">Lieferadresse</h3>
-          <Field label="Straße + Hausnummer *">
-            <input className="input" required value={form.street} onChange={update('street')} />
+          <Field label="Lieferzone *">
+            <select
+              className="input"
+              required
+              value={form.deliveryZoneId}
+              onChange={(e) => {
+                const zone = zones.find((z) => z.id === e.target.value);
+                setForm({
+                  ...form,
+                  deliveryZoneId: e.target.value,
+                  postalCode: zone?.postalCode || '',
+                  city: zone?.label?.trim() || '',
+                  streetName: '',
+                  houseNumber: '',
+                  pinSet: false,
+                });
+              }}
+            >
+              <option value="">{zonesLoading ? 'Wird geladen' : 'Auswählen'}</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.postalCode}{z.label ? ` – ${z.label}` : ''}
+                </option>
+              ))}
+            </select>
           </Field>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Lieferzone *">
-              <select
-                className="input"
-                required
-                value={form.deliveryZoneId}
-                onChange={(e) => {
-                  const zone = zones.find((z) => z.id === e.target.value);
-                  setForm({
-                    ...form,
-                    deliveryZoneId: e.target.value,
-                    postalCode: zone?.postalCode || '',
-                    city: zone?.label?.trim() || form.city,
-                  });
-                }}
-              >
-                <option value="">{zonesLoading ? 'Wird geladen' : 'Auswählen'}</option>
-                {zones.map((z) => (
-                  <option key={z.id} value={z.id}>
-                    {z.postalCode}{z.label ? ` – ${z.label}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Stadt *">
-              <input className="input" required value={form.city} onChange={update('city')} />
-            </Field>
-          </div>
+
+          <DeliveryMapPicker
+            zone={selectedZone}
+            streetName={form.streetName}
+            houseNumber={form.houseNumber}
+            onStreetNameChange={(streetName) => setForm((f) => ({ ...f, streetName }))}
+            onHouseNumberChange={(houseNumber) => setForm((f) => ({ ...f, houseNumber }))}
+            onPinSet={(pin) => setForm((f) => ({ ...f, pinSet: Boolean(pin) }))}
+          />
+
+          <Field label="Hausnummer *">
+            <input
+              className="input"
+              required
+              value={form.houseNumber}
+              onChange={update('houseNumber')}
+              placeholder="z. B. 25"
+              disabled={!form.streetName}
+            />
+          </Field>
           <Field label="Anmerkungen für die Küche / den Fahrer">
             <textarea rows="3" className="input" value={form.notes} onChange={update('notes')} />
           </Field>
