@@ -17,6 +17,8 @@ router.get('/mine/list', authRequired, ctrl.mine);
 router.get('/', staff, ctrl.list);
 router.get('/admin/dashboard', staff, ctrl.dashboard);
 
+router.get('/:id/drive-time', staff, ctrl.driveTime);
+
 // Public single order view (used for tracking link). Keep last among GETs.
 router.get('/:id', ctrl.getOne);
 

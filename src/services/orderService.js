@@ -13,12 +13,31 @@ const ORDERS_CLOSED_MESSAGE = 'Wir nehmen derzeit keine Bestellungen entgegen.';
 const DELIVERY_FEE = 2.5;
 const TAX_RATE = 0;
 
-async function resolveDeliveryFee(postalCode) {
-  if (!postalCode) return DELIVERY_FEE;
-  const zone = await prisma.deliveryZone.findFirst({
-    where: { postalCode: postalCode.trim(), isActive: true },
-  });
-  return zone ? Number(zone.deliveryFee) : DELIVERY_FEE;
+async function resolveDeliveryZone({ deliveryZoneId, postalCode, areaLabel } = {}) {
+  if (deliveryZoneId) {
+    const zone = await prisma.deliveryZone.findUnique({ where: { id: deliveryZoneId } });
+    if (!zone || !zone.isActive) {
+      throw new ApiError(400, 'Lieferzone nicht verfügbar');
+    }
+    return zone;
+  }
+  if (postalCode) {
+    const where = { postalCode: postalCode.trim(), isActive: true };
+    if (areaLabel !== undefined) where.label = (areaLabel || '').trim();
+    const zone = await prisma.deliveryZone.findFirst({ where });
+    if (zone) return zone;
+  }
+  return null;
+}
+
+function assertMinimumOrder(subtotal, zone) {
+  const minimumOrder = Number(zone.minimumOrder);
+  if (minimumOrder > 0 && subtotal < minimumOrder) {
+    throw new ApiError(
+      400,
+      `Mindestbestellwert für diese Lieferzone: €${minimumOrder.toFixed(2)} (aktuell €${subtotal.toFixed(2)})`
+    );
+  }
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -95,7 +114,18 @@ async function createOrder(input, userId = null) {
 
   const { orderItemsCreate, subtotal } = await _resolveCart(input.items);
 
-  const deliveryFee = await resolveDeliveryFee(input.postalCode);
+  const zone = await resolveDeliveryZone({
+    deliveryZoneId: input.deliveryZoneId,
+    postalCode: input.postalCode,
+  });
+  if (!zone) {
+    throw new ApiError(400, 'Lieferung in diese Postleitzahl ist nicht möglich');
+  }
+  if (input.postalCode?.trim() !== zone.postalCode) {
+    throw new ApiError(400, 'Postleitzahl stimmt nicht mit der gewählten Lieferzone überein');
+  }
+  const deliveryFee = Number(zone.deliveryFee);
+  assertMinimumOrder(subtotal, zone);
 
   // Coupon
   let discount = 0;
@@ -357,17 +387,41 @@ async function editOrder(id, input, { userId, role }) {
     if (input[k] !== undefined) data[k] = input[k];
   });
 
+  const postalCode = data.postalCode ?? order.postalCode;
+  const city = data.city ?? order.city;
+  const addressChanged = input.postalCode !== undefined || input.city !== undefined || input.deliveryZoneId;
+
+  let zone = null;
+  if (addressChanged || input.items || input.deliveryZoneId) {
+    zone = await resolveDeliveryZone({
+      deliveryZoneId: input.deliveryZoneId,
+      postalCode,
+      areaLabel: city,
+    });
+    if (!zone) {
+      throw new ApiError(400, 'Lieferung in diese Postleitzahl ist nicht möglich');
+    }
+    if (addressChanged || input.deliveryZoneId) {
+      data.deliveryFee = zone.deliveryFee;
+    }
+  }
+
   // Items rebuild (optional)
   if (input.items) {
     const { orderItemsCreate, subtotal } = await _resolveCart(input.items);
+    const deliveryFee = Number(zone?.deliveryFee ?? order.deliveryFee);
+    if (zone) assertMinimumOrder(subtotal, zone);
     const tax = round2(subtotal * TAX_RATE);
-    const total = round2(subtotal + Number(order.deliveryFee) + tax);
+    const discount = Number(order.discount || 0);
+    const total = round2(subtotal + deliveryFee + tax - discount);
     data.subtotal = subtotal;
+    data.deliveryFee = deliveryFee;
     data.tax = tax;
     data.total = total;
-    // Wipe existing items and recreate
     await prisma.orderItem.deleteMany({ where: { orderId: id } });
     data.items = { create: orderItemsCreate };
+  } else if (zone && addressChanged) {
+    assertMinimumOrder(Number(order.subtotal), zone);
   }
 
   // If customer is editing a declined order, resubmit it as PENDING

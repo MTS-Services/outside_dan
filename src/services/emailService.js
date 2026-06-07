@@ -45,8 +45,8 @@ async function send({ to, subject, html, text }) {
   }
   // Attach logo as CID inline image so it works regardless of the server's public URL
   const attachments = [];
-  const logoPath = path.join(__dirname, '../../uploads/logo.png');
-  if (fs.existsSync(logoPath)) {
+  const logoPath = resolveLogoPath();
+  if (logoPath) {
     attachments.push({ filename: 'logo.png', path: logoPath, cid: 'email-logo' });
   }
   try {
@@ -70,12 +70,21 @@ async function send({ to, subject, html, text }) {
 
 function fmt(n) { return Number(n).toFixed(2); }
 
-function shellHTML({ title, preheader, content, settings = {} }) {
+function resolveLogoPath() {
+  return [
+    path.join(__dirname, '../../public/logo.png'),
+    path.join(__dirname, '../../uploads/logo.png'),
+  ].find((p) => fs.existsSync(p)) || null;
+}
+
+function shellHTML({ title, preheader, content, settings = {}, hasLogo = false }) {
   const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
   const address = settings.restaurant_address || config.restaurant.address || '';
   const phone = settings.restaurant_phone || config.restaurant.phone || '';
-  const logoUrl = 'cid:email-logo';
   const footer = [name, address, phone].filter(Boolean).join(' · ');
+  const logoBlock = hasLogo
+    ? `<img src="cid:email-logo" alt="${name}" style="height:52px;width:auto;display:block;margin:0 auto;" />`
+    : `<div style="font-family:'Bebas Neue',Impact,sans-serif;font-size:28px;letter-spacing:3px;color:#D9AF47;">${name}</div>`;
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#050505;font-family:Inter,Arial,sans-serif;color:#fff;">
@@ -84,7 +93,7 @@ function shellHTML({ title, preheader, content, settings = {} }) {
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111;border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;">
       <tr><td align="center" style="padding:16px 28px;background:#000;border-bottom:3px solid #D9AF47;">
-        <img src="${logoUrl}" alt="${name}" style="height:52px;width:auto;display:block;margin:0 auto;" />
+        ${logoBlock}
       </td></tr>
       <tr><td style="padding:28px;color:#fff;line-height:1.6;font-size:15px;">
         ${content}
@@ -121,6 +130,7 @@ function itemsTable(order) {
 
 async function orderAcceptedHTML(order) {
   const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
   const note = order.acceptanceNote
     ? `<div style="margin:18px 0;padding:14px 16px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.3);border-radius:10px;color:#6ee7b7;">
         <strong>Hinweis vom Koch:</strong> ${order.acceptanceNote}</div>`
@@ -141,11 +151,13 @@ async function orderAcceptedHTML(order) {
       </div>
       <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Vielen Dank — wir geben unser Bestes!</p>`,
     settings,
+    hasLogo,
   });
 }
 
 async function orderDeclinedHTML(order) {
   const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
   return shellHTML({
     title: 'Bestellung abgelehnt',
     preheader: `Bestellung ${order.orderNumber} abgelehnt`,
@@ -157,6 +169,7 @@ async function orderDeclinedHTML(order) {
       <p style="color:rgba(255,255,255,0.7);">Sie können Ihre Bestellung in Ihrem Konto bearbeiten und erneut absenden.</p>
       <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:18px;">Bei Fragen erreichen Sie uns unter ${settings.restaurant_phone || config.restaurant.phone || ''}.</p>`,
     settings,
+    hasLogo,
   });
 }
 
@@ -187,9 +200,23 @@ async function sendOrderDeclined(order) {
   });
 }
 
-async function newOrderAdminHTML(order) {
+async function newOrderAdminHTML(order, driveInfo = null) {
   const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
   const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
+  const driveBlock = driveInfo?.minutes != null
+    ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;font-size:13px;${
+        driveInfo.tooFar
+          ? 'background:rgba(205,33,42,0.12);border:1px solid rgba(205,33,42,0.35);color:#fca5a5;'
+          : 'background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;'
+      }">
+        <strong>Fahrzeit vom Restaurant:</strong> ca. ${driveInfo.minutes} Min. (${driveInfo.distanceKm} km)
+        ${driveInfo.tooFar ? `<br><strong>Achtung:</strong> über dem Limit von ${driveInfo.maxMinutes} Min. — evtl. außerhalb der Lieferzone.` : ''}
+        ${driveInfo.mapsUrl ? `<br><a href="${driveInfo.mapsUrl}" style="color:#D9AF47;">Route in Google Maps öffnen</a>` : ''}
+      </div>`
+    : (driveInfo?.error
+      ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.55);">Fahrzeit: ${driveInfo.error}</div>`
+      : '');
   return shellHTML({
     title: 'Neue Bestellung eingegangen',
     preheader: `Neue Bestellung ${order.orderNumber} von ${order.customerName}`,
@@ -204,27 +231,35 @@ async function newOrderAdminHTML(order) {
         <div style="margin-bottom:6px;"><strong>Zahlung:</strong> ${prettyPayment(order.paymentMethod)}</div>
         ${order.notes ? `<div style="margin-top:6px;color:#D9AF47;"><strong>Notiz:</strong> ${order.notes}</div>` : ''}
       </div>
+      ${driveBlock}
       ${itemsTable(order)}
       <div style="margin-top:20px;">
         <a href="${config.clientUrl}/admin/orders" style="display:inline-block;padding:12px 28px;background:#D9AF47;color:#000;font-weight:700;border-radius:8px;text-decoration:none;font-size:15px;">Bestellung öffnen</a>
       </div>
       <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:18px;">Diese E-Mail wurde automatisch von ${name} gesendet.</p>`,
     settings,
+    hasLogo,
   });
 }
 
 async function sendNewOrderToAdmin(order, adminEmails) {
   if (!adminEmails || adminEmails.length === 0) return;
   const to = Array.isArray(adminEmails) ? adminEmails.join(', ') : adminEmails;
+  let driveInfo = null;
+  try {
+    const distance = require('./distanceService');
+    driveInfo = await distance.getDriveTimeForOrder(order);
+  } catch { /* optional */ }
   return send({
     to,
     subject: `Neue Bestellung ${order.orderNumber} – ${order.customerName}`,
-    html: await newOrderAdminHTML(order),
+    html: await newOrderAdminHTML(order, driveInfo),
   });
 }
 
 async function sendTestEmailToAdmin(adminEmail) {
   const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
   return send({
     to: adminEmail,
     subject: 'Test-E-Mail',
@@ -236,6 +271,7 @@ async function sendTestEmailToAdmin(adminEmail) {
         <p style="color:rgba(255,255,255,0.8);">E-Mail-Benachrichtigungen sind korrekt eingerichtet.</p>
         <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:12px;">Du erhältst ab jetzt eine E-Mail für jede neue Bestellung.</p>`,
       settings,
+      hasLogo,
     }),
   });
 }

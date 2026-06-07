@@ -110,6 +110,7 @@ const orderCreate = Joi.object({
   street: Joi.string().min(3).max(200).required(),
   city: Joi.string().min(2).max(120).required(),
   postalCode: Joi.string().min(2).max(20).required(),
+  deliveryZoneId: Joi.string().uuid().allow(null),
   notes: Joi.string().allow('', null).max(500),
   paymentMethod: Joi.string().valid('CASH', 'CARD_ON_DELIVERY', 'PAYPAL').default('CASH'),
   paypalOrderId: Joi.string().allow('', null),
@@ -125,6 +126,7 @@ const orderEdit = Joi.object({
   street: Joi.string().min(3).max(200),
   city: Joi.string().min(2).max(120),
   postalCode: Joi.string().min(2).max(20),
+  deliveryZoneId: Joi.string().uuid().allow(null),
   items: Joi.array().items(orderItemSchema).min(1),
 });
 
@@ -150,7 +152,7 @@ const paypalCreate = Joi.object({
 
 const deliveryZone = Joi.object({
   postalCode: Joi.string().min(2).max(20).required(),
-  label: Joi.string().max(80).allow('', null),
+  label: Joi.string().max(80).allow('', null).default(''),
   deliveryFee: Joi.number().min(0).precision(2).required(),
   minimumOrder: Joi.number().min(0).precision(2).default(0),
   isActive: Joi.boolean().default(true),

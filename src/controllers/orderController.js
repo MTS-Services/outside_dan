@@ -1,4 +1,5 @@
 const orderService = require('../services/orderService');
+const distanceService = require('../services/distanceService');
 
 async function create(req, res) {
   const userId = req.user?.sub || null;
@@ -55,4 +56,10 @@ async function dashboard(req, res) {
   res.json(await orderService.dashboardStats());
 }
 
-module.exports = { create, list, mine, getOne, accept, decline, setStatus, reprint, edit, dashboard };
+async function driveTime(req, res) {
+  const order = await orderService.getOrder(req.params.id);
+  const info = await distanceService.getDriveTimeForOrder(order);
+  res.json(info);
+}
+
+module.exports = { create, list, mine, getOne, accept, decline, setStatus, reprint, edit, dashboard, driveTime };
