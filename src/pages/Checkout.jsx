@@ -380,8 +380,6 @@ export default function Checkout() {
 
           <DeliveryMapPicker
             zone={selectedZone}
-            streetName={form.streetName}
-            houseNumber={form.houseNumber}
             onStreetNameChange={(streetName) => setForm((f) => ({ ...f, streetName }))}
             onHouseNumberChange={(houseNumber) => setForm((f) => ({ ...f, houseNumber }))}
             onPinSet={(pin) => setForm((f) => ({ ...f, pinSet: Boolean(pin) }))}
