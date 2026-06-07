@@ -194,7 +194,46 @@ async function getDriveTimeForOrder(order) {
   }
 }
 
+async function reverseGeocode(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    format: 'json',
+    addressdetails: '1',
+  })}`;
+  const { data } = await axios.get(url, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    timeout: 12000,
+  });
+  const addr = data?.address || {};
+  const streetName = addr.road || addr.pedestrian || addr.footway || addr.hamlet || addr.suburb || '';
+  return {
+    streetName,
+    houseNumber: addr.house_number || '',
+    postalCode: addr.postcode || '',
+    city: addr.village || addr.town || addr.city || addr.municipality || '',
+    displayName: data?.display_name || '',
+    lat,
+    lon,
+  };
+}
+
+async function geocodeZoneCenter(postalCode, label = '') {
+  const candidates = [];
+  const plz = (postalCode || '').trim();
+  const area = (label || '').trim();
+  if (plz && area) candidates.push(`${plz} ${area}`);
+  if (plz) candidates.push(plz);
+  const hit = await geocodeFirst(candidates);
+  if (!hit) return null;
+  return { lat: hit.lat, lon: hit.lon, label: hit.label };
+}
+
 module.exports = {
+  geocode,
+  geocodeFirst,
+  reverseGeocode,
+  geocodeZoneCenter,
   getDriveTimeTo,
   getDriveTimeForOrder,
   getMaxDeliveryMinutes,
