@@ -1,15 +1,12 @@
 /**
- * Estimate driving time between two addresses using OpenStreetMap (Nominatim + OSRM).
- * Free, no API key required. Results are cached briefly.
+ * Delivery drive-time via Google Maps (Geocoding + Distance Matrix).
  */
-const axios = require('axios');
+const googleMaps = require('./googleMapsService');
 const siteSettings = require('./siteSettingService');
 const config = require('../config');
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const cache = new Map();
-
-const USER_AGENT = 'Tarantella-Restaurant-App/1.0';
 
 function cacheKey(origin, destination) {
   return `${origin}||${destination}`;
@@ -29,42 +26,6 @@ function setCache(key, value) {
   cache.set(key, { at: Date.now(), value });
 }
 
-async function geocode(address) {
-  const q = `${address}, Österreich`;
-  const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
-    q,
-    format: 'json',
-    limit: '1',
-    countrycodes: 'at',
-  })}`;
-
-  const { data } = await axios.get(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    timeout: 12000,
-  });
-  if (!data?.[0]) return null;
-  return {
-    lat: parseFloat(data[0].lat),
-    lon: parseFloat(data[0].lon),
-    label: data[0].display_name,
-  };
-}
-
-async function routeMinutes(from, to) {
-  const coords = `${from.lon},${from.lat};${to.lon},${to.lat}`;
-  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`;
-  const { data } = await axios.get(url, {
-    headers: { Accept: 'application/json' },
-    timeout: 12000,
-  });
-  if (data.code !== 'Ok' || !data.routes?.[0]) return null;
-  const route = data.routes[0];
-  return {
-    minutes: Math.round(route.duration / 60),
-    distanceKm: Math.round((route.distance / 1000) * 10) / 10,
-  };
-}
-
 async function getRestaurantAddress() {
   const fromSettings = await siteSettings.getSetting('restaurant_address', '');
   return (fromSettings || config.restaurant.address || '').trim();
@@ -76,116 +37,90 @@ async function getMaxDeliveryMinutes() {
   return Number.isFinite(n) && n > 0 ? n : 45;
 }
 
-/**
- * @param {string} destinationAddress - full delivery address
- * @returns {Promise<{ minutes, distanceKm, maxMinutes, tooFar, origin, destination, mapsUrl } | { error }>}
- */
-async function getDriveTimeTo(destinationAddress) {
-  const origin = await getRestaurantAddress();
-  const destination = (destinationAddress || '').trim();
-  if (!origin) return { error: 'Restaurant-Adresse nicht konfiguriert' };
-  if (!destination) return { error: 'Lieferadresse fehlt' };
-
-  const key = cacheKey(origin, destination);
-  const cached = getCached(key);
-  if (cached) return cached;
-
-  try {
-    const [from, to] = await Promise.all([
-      geocode(origin),
-      geocode(destination),
-    ]);
-    if (!from) return { error: 'Restaurant-Adresse konnte nicht gefunden werden' };
-    if (!to) return { error: 'Lieferadresse konnte nicht gefunden werden' };
-
-    const route = await routeMinutes(from, to);
-    if (!route) return { error: 'Fahrzeit konnte nicht berechnet werden' };
-
-    const maxMinutes = await getMaxDeliveryMinutes();
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-
-    const result = {
-      minutes: route.minutes,
-      distanceKm: route.distanceKm,
-      maxMinutes,
-      tooFar: route.minutes > maxMinutes,
-      origin,
-      destination,
-      mapsUrl,
-    };
-    setCache(key, result);
-    return result;
-  } catch (err) {
-    return { error: err.message || 'Fahrzeit konnte nicht berechnet werden' };
-  }
-}
-
 function formatOrderAddress(order) {
   const parts = [order.street, order.postalCode, order.city].filter(Boolean);
   return parts.join(', ');
 }
 
-/** Fallback queries when the full street address cannot be geocoded in Austria. */
-function deliveryGeocodeCandidates(order) {
+function geocodeCandidates(order) {
   const street = (order.street || '').trim();
   const postalCode = (order.postalCode || '').trim();
   const city = (order.city || '').trim();
-  const candidates = [];
-  if (street && postalCode && city) candidates.push(`${street}, ${postalCode} ${city}`);
-  if (postalCode && city) candidates.push(`${postalCode} ${city}`);
-  if (postalCode) candidates.push(postalCode);
-  return [...new Set(candidates)];
+  const list = [];
+  if (street && postalCode && city) list.push(`${street}, ${postalCode} ${city}`);
+  if (street && postalCode) list.push(`${street}, ${postalCode}`);
+  if (postalCode && city) list.push(`${postalCode} ${city}`);
+  if (postalCode) list.push(postalCode);
+  return [...new Set(list)];
 }
 
-async function geocodeFirst(queries) {
-  for (const q of queries) {
-    const hit = await geocode(q);
+async function geocodeFirst(candidates) {
+  for (const q of candidates) {
+    const hit = await googleMaps.geocodeAddress(q);
     if (hit) return { ...hit, query: q };
   }
   return null;
 }
 
 async function getDriveTimeForOrder(order) {
+  if (!googleMaps.isConfigured()) {
+    return { error: 'Google Maps API nicht konfiguriert (GOOGLE_MAPS_API_KEY)' };
+  }
+
   const origin = await getRestaurantAddress();
   if (!origin) return { error: 'Restaurant-Adresse nicht konfiguriert' };
 
-  const candidates = deliveryGeocodeCandidates(order);
-  if (!candidates.length) return { error: 'Lieferadresse fehlt' };
+  const destination = formatOrderAddress(order);
+  const lat = order.deliveryLat != null ? Number(order.deliveryLat) : null;
+  const lon = order.deliveryLon != null ? Number(order.deliveryLon) : null;
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
-  const key = cacheKey(origin, candidates.join('|'));
+  const key = cacheKey(origin, hasCoords ? `${lat},${lon}` : destination);
   const cached = getCached(key);
   if (cached) return cached;
 
   try {
-    const from = await geocode(origin);
-    if (!from) return { error: 'Restaurant-Adresse konnte nicht gefunden werden' };
+    let destTarget;
+    let approximate = false;
+    let geocodedAs = null;
 
-    const to = await geocodeFirst(candidates);
-    if (!to) {
-      return {
-        error: 'Lieferadresse konnte nicht gefunden werden',
-        hint: 'Straße scheint ungültig (z. B. Testadresse). Bitte Lieferzone und Straße prüfen.',
-      };
+    if (hasCoords) {
+      destTarget = `${lat},${lon}`;
+      geocodedAs = `${destination} (Google Maps Pin)`;
+    } else {
+      const candidates = geocodeCandidates(order);
+      const hit = await geocodeFirst(candidates);
+      if (!hit) {
+        return {
+          error: 'Lieferadresse konnte nicht gefunden werden',
+          hint: 'Bitte Adresse auf der Google-Karte wählen.',
+        };
+      }
+      destTarget = `${hit.lat},${hit.lon}`;
+      geocodedAs = hit.query;
+      approximate = hit.query !== candidates[0];
     }
 
-    const route = await routeMinutes(from, to);
+    const route = await googleMaps.getDrivingRoute(origin, destTarget);
     if (!route) return { error: 'Fahrzeit konnte nicht berechnet werden' };
 
     const maxMinutes = await getMaxDeliveryMinutes();
-    const destination = formatOrderAddress(order);
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-    const usedFallback = to.query !== candidates[0];
+    const mapsUrl = googleMaps.mapsDirectionsUrl(origin, destination);
 
     const result = {
       minutes: route.minutes,
+      rawMinutes: route.minutes,
       distanceKm: route.distanceKm,
+      durationText: route.durationText,
+      distanceText: route.distanceText,
       maxMinutes,
       tooFar: route.minutes > maxMinutes,
       origin,
       destination,
-      geocodedAs: to.query,
-      approximate: usedFallback,
       mapsUrl,
+      geocodedAs,
+      approximate,
+      provider: 'google',
     };
     setCache(key, result);
     return result;
@@ -194,48 +129,34 @@ async function getDriveTimeForOrder(order) {
   }
 }
 
-async function reverseGeocode(lat, lon) {
-  const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({
-    lat: String(lat),
-    lon: String(lon),
-    format: 'json',
-    addressdetails: '1',
-  })}`;
-  const { data } = await axios.get(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    timeout: 12000,
-  });
-  const addr = data?.address || {};
-  const streetName = addr.road || addr.pedestrian || addr.footway || addr.hamlet || addr.suburb || '';
-  return {
-    streetName,
-    houseNumber: addr.house_number || '',
-    postalCode: addr.postcode || '',
-    city: addr.village || addr.town || addr.city || addr.municipality || '',
-    displayName: data?.display_name || '',
-    lat,
-    lon,
-  };
+async function getDriveTimeTo(destinationAddress) {
+  return getDriveTimeForOrder({ street: destinationAddress, postalCode: '', city: '' });
 }
 
 async function geocodeZoneCenter(postalCode, label = '') {
-  const candidates = [];
   const plz = (postalCode || '').trim();
   const area = (label || '').trim();
-  if (plz && area) candidates.push(`${plz} ${area}`);
-  if (plz) candidates.push(plz);
-  const hit = await geocodeFirst(candidates);
+  const q = area ? `${plz} ${area}` : plz;
+  const hit = await googleMaps.geocodeAddress(q);
   if (!hit) return null;
   return { lat: hit.lat, lon: hit.lon, label: hit.label };
 }
 
+async function reverseGeocode(lat, lon) {
+  if (!googleMaps.isConfigured()) {
+    return { error: 'Google Maps API nicht konfiguriert' };
+  }
+  const hit = await googleMaps.reverseGeocode(lat, lon);
+  if (!hit) return null;
+  return hit;
+}
+
 module.exports = {
-  geocode,
-  geocodeFirst,
-  reverseGeocode,
-  geocodeZoneCenter,
   getDriveTimeTo,
   getDriveTimeForOrder,
+  getRestaurantAddress,
   getMaxDeliveryMinutes,
   formatOrderAddress,
+  geocodeZoneCenter,
+  reverseGeocode,
 };

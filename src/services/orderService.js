@@ -171,6 +171,8 @@ async function createOrder(input, userId = null) {
       street: input.street,
       city: input.city,
       postalCode: input.postalCode,
+      deliveryLat: input.deliveryLat ?? null,
+      deliveryLon: input.deliveryLon ?? null,
       notes: input.notes || null,
       subtotal,
       deliveryFee,

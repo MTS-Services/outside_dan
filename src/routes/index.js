@@ -13,6 +13,7 @@ router.use('/site-settings', require('./siteSettingRoutes'));
 router.use('/coupons', require('./couponRoutes'));
 router.use('/delivery-zones', require('./deliveryZoneRoutes'));
 router.use('/geocode', require('./geocodeRoutes'));
+router.use('/maps', require('./mapsRoutes'));
 router.use('/legal-pages', require('./legalPageRoutes'));
 
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));

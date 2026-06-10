@@ -23,6 +23,9 @@ module.exports = {
     address: process.env.RESTAURANT_ADDRESS || '',
     phone: process.env.RESTAURANT_PHONE || '',
   },
+  googleMaps: {
+    apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+  },
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY || '',
     privateKey: process.env.VAPID_PRIVATE_KEY || '',

@@ -174,6 +174,8 @@ model Order {
   street        String
   city          String
   postalCode    String
+  deliveryLat   Decimal?  @db.Decimal(10, 7)
+  deliveryLon   Decimal?  @db.Decimal(10, 7)
   notes         String?
 
   // Coupon

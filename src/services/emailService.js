@@ -211,6 +211,7 @@ async function newOrderAdminHTML(order, driveInfo = null) {
           : 'background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;'
       }">
         <strong>Fahrzeit vom Restaurant:</strong> ca. ${driveInfo.minutes} Min. (${driveInfo.distanceKm} km)
+        ${driveInfo.approximate ? '<br><em>Ungenaue Schätzung – bitte Route in Google Maps prüfen.</em>' : ''}
         ${driveInfo.tooFar ? `<br><strong>Achtung:</strong> über dem Limit von ${driveInfo.maxMinutes} Min. — evtl. außerhalb der Lieferzone.` : ''}
         ${driveInfo.mapsUrl ? `<br><a href="${driveInfo.mapsUrl}" style="color:#D9AF47;">Route in Google Maps öffnen</a>` : ''}
       </div>`

@@ -111,6 +111,8 @@ const orderCreate = Joi.object({
   city: Joi.string().min(2).max(120).required(),
   postalCode: Joi.string().min(2).max(20).required(),
   deliveryZoneId: Joi.string().uuid().allow(null),
+  deliveryLat: Joi.number().min(-90).max(90).allow(null),
+  deliveryLon: Joi.number().min(-180).max(180).allow(null),
   notes: Joi.string().allow('', null).max(500),
   paymentMethod: Joi.string().valid('CASH', 'CARD_ON_DELIVERY', 'PAYPAL').default('CASH'),
   paypalOrderId: Joi.string().allow('', null),
