@@ -257,8 +257,9 @@ function DriveTimeBadge({ info, showWhenMissing = false }) {
   }
   return (
     <span className={`inline-flex flex-wrap items-center gap-1 text-[11px] font-semibold ${info.tooFar ? 'text-orange-300' : 'text-emerald-300/90'}`}>
-      <span>🚗 ca. {info.minutes} Min. ({info.distanceKm} km){info.approximate ? ' (geschätzt nach PLZ/Gebiet)' : ''}</span>
-      {info.tooFar && <span className="text-orange-400">· Außerhalb Zone (max. {info.maxMinutes} Min.)</span>}
+      <span>🚗 ca. {info.minutes} Min. ({info.distanceKm} km)</span>
+      {info.approximate && <span className="text-orange-300/80"> · ungenaue Schätzung (PLZ/Gebiet)</span>}
+      {info.tooFar && <span className="text-orange-400"> · Außerhalb Zone (max. {info.maxMinutes} Min.)</span>}
     </span>
   );
 }

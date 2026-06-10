@@ -20,6 +20,8 @@ const initial = {
   city: '',
   postalCode: '',
   deliveryZoneId: '',
+  deliveryLat: null,
+  deliveryLon: null,
   pinSet: false,
   notes: '',
   paymentMethod: 'CASH',
@@ -56,6 +58,7 @@ export default function Checkout() {
   const { canOrder, loaded: settingsLoaded } = useOrderGuard();
   const [form, setForm] = useState(initial);
   const [submitting, setSubmitting] = useState(false);
+  const [deliveryTooFar, setDeliveryTooFar] = useState(false);
 
   // PayPal state
   const [paypalConfig, setPaypalConfig] = useState(null); // { clientId, currency, mode }
@@ -175,6 +178,8 @@ export default function Checkout() {
     city: form.city,
     postalCode: form.postalCode,
     deliveryZoneId: form.deliveryZoneId || null,
+    deliveryLat: form.deliveryLat,
+    deliveryLon: form.deliveryLon,
     notes: form.notes,
     paymentMethod,
     paypalOrderId,
@@ -218,7 +223,8 @@ export default function Checkout() {
     if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
     if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
     if (!form.deliveryZoneId) { toast.error('Bitte wähle eine Lieferzone aus'); return false; }
-    if (!form.pinSet || !form.streetName.trim()) { toast.error('Bitte wähle deine Straße auf der Karte'); return false; }
+    if (!form.pinSet || !form.streetName.trim()) { toast.error('Bitte Adresse auf der Karte wählen oder eingeben'); return false; }
+    if (deliveryTooFar) { toast.error('Diese Adresse liegt außerhalb des Liefergebiets. Bitte eine nähere Adresse wählen.'); return false; }
     if (!form.houseNumber.trim()) { toast.error('Hausnummer ist erforderlich'); return false; }
     if (fullStreet.length < 3) { toast.error('Adresse ist unvollständig'); return false; }
     if (belowMinimum) {
@@ -366,7 +372,10 @@ export default function Checkout() {
                   streetName: '',
                   houseNumber: '',
                   pinSet: false,
+                  deliveryLat: null,
+                  deliveryLon: null,
                 });
+                setDeliveryTooFar(false);
               }}
             >
               <option value="">{zonesLoading ? 'Wird geladen' : 'Auswählen'}</option>
@@ -380,9 +389,18 @@ export default function Checkout() {
 
           <DeliveryMapPicker
             zone={selectedZone}
-            onStreetNameChange={(streetName) => setForm((f) => ({ ...f, streetName }))}
+            onStreetNameChange={(streetName) => {
+              setDeliveryTooFar(false);
+              setForm((f) => ({ ...f, streetName }));
+            }}
             onHouseNumberChange={(houseNumber) => setForm((f) => ({ ...f, houseNumber }))}
-            onPinSet={(pin) => setForm((f) => ({ ...f, pinSet: Boolean(pin) }))}
+            onPinSet={(pin) => setForm((f) => ({
+              ...f,
+              pinSet: Boolean(pin),
+              deliveryLat: pin?.lat ?? null,
+              deliveryLon: pin?.lon ?? null,
+            }))}
+            onRouteCheck={(result) => setDeliveryTooFar(Boolean(result?.tooFar))}
           />
 
           <Field label="Hausnummer *">
@@ -525,7 +543,7 @@ export default function Checkout() {
               </div>
             ) : (
               <button
-                disabled={submitting || zonesLoading || couponApplying || belowMinimum || !form.deliveryZoneId}
+                disabled={submitting || zonesLoading || couponApplying || belowMinimum || !form.deliveryZoneId || deliveryTooFar}
                 type="submit"
                 className="btn-primary w-full justify-center py-4 text-lg shadow-brand disabled:opacity-60 transition-all"
               >

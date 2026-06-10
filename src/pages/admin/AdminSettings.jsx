@@ -105,6 +105,7 @@ export default function AdminSettings() {
       const { orders_accepted: _ignored, ...rest } = form;
       await api.put('/site-settings', {
         ...rest,
+        max_delivery_minutes: String(Math.max(5, Math.min(180, parseInt(form.max_delivery_minutes, 10) || 45))),
         opening_hours: hours,
         news_banner_enabled: !!form.news_banner_enabled,
         news_banner_text: form.news_banner_text || '',
@@ -186,19 +187,29 @@ export default function AdminSettings() {
             <span className="label">Google Maps URL</span>
             <input className="input" value={form.maps_url} onChange={set('maps_url')} placeholder="https://maps.google.com/?q=..." />
           </label>
+        </div>
+
+        {/* Delivery limits */}
+        <div className="card p-6 space-y-4">
+          <h2 className="font-display text-xl text-brand-400">Lieferung</h2>
+          <p className="text-sm text-white/50">
+            Steuert die maximale Fahrzeit vom Restaurant zur Kundenadresse — sichtbar in der Kasse und in der Bestellübersicht.
+          </p>
           <label className="block">
-            <span className="label">Max. Fahrzeit für Lieferungen (Minuten)</span>
+            <span className="label">Max. Fahrzeit (Minuten)</span>
             <input
-              className="input"
+              className="input max-w-xs"
               type="number"
               min="5"
               max="180"
+              step="1"
+              required
               value={form.max_delivery_minutes}
               onChange={set('max_delivery_minutes')}
               placeholder="45"
             />
             <p className="text-xs text-white/40 mt-1">
-              Bestellungen mit längerer Fahrzeit werden in der Bestellübersicht als „außerhalb der Lieferzone“ markiert.
+              Beispiel: Bei <strong className="text-white/60">20</strong> Min. wird eine Adresse mit 21 Min. Fahrzeit in der Kasse als außerhalb des Liefergebiets markiert und kann nicht bestellt werden.
             </p>
           </label>
         </div>
