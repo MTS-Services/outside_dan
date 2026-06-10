@@ -16,6 +16,16 @@ const siteSettingService = require('./services/siteSettingService');
 const app = express();
 
 
+// Set up rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests, please try again later.',
+});
+
+app.use(limiter);
+
+
 
 // Trust the first reverse-proxy hop (nginx / Caddy / Railway etc.) so that
 // express-rate-limit can correctly read the real client IP from X-Forwarded-For.
