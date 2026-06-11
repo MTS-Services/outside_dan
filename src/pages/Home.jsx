@@ -221,11 +221,7 @@ export default function Home() {
                 Speisekarte ansehen
               </Link>
             </div>
-            <div className="hero-anim mt-8 sm:mt-12 flex flex-wrap gap-6 sm:gap-10">
-              <Stat n="20K+" l="Zufriedene Kunden" />
-              <Stat n="4,9" l="Durchschnittsbewertung" icon="star" />
-              <Stat n="35 Min" l="Ø Lieferzeit" />
-            </div>
+
           </div>
         </div>
 
