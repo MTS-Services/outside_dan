@@ -32,7 +32,26 @@ app.use(limiter);
 app.set('trust proxy', 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: config.clientUrl, credentials: true }));
+
+const ALLOWED_ORIGINS = new Set([
+  'https://tarantella.at',
+  'https://www.tarantella.at',
+  // dev
+  'http://localhost:5173',
+  'http://localhost:3000',
+]);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow server-to-server / curl (no Origin header)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
+    callback(Object.assign(new Error(`CORS blocked: ${origin}`), { status: 403 }));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
 
