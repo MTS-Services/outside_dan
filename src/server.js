@@ -26,6 +26,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 const ALLOWED_ORIGINS = new Set([
   'https://tarantella.at',
   'https://www.tarantella.at',
+  
   // dev
   'http://localhost:5173',
   'http://localhost:3000',
