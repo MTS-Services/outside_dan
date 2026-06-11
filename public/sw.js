@@ -1,5 +1,5 @@
 /* eslint-env serviceworker */
-/* Web Push service worker for Rockin Rumble */
+/* Web Push service worker for Tarantella */
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

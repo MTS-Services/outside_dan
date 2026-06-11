@@ -49,7 +49,7 @@ async function createOrder({ amount, currency = config.paypal.currency, referenc
         },
       ],
       application_context: {
-        brand_name: 'Rockin Rumble',
+        brand_name: 'Tarantella Pizza Pasta Napoli',
         shipping_preference: 'NO_SHIPPING',
         user_action: 'PAY_NOW',
       },
