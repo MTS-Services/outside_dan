@@ -9,6 +9,7 @@ import { subscribeToPush, isPushSubscribed } from '../api/push';
 import PhoneInput from '../components/PhoneInput';
 import DeliveryMapPicker from '../components/DeliveryMapPicker';
 import { findCountry } from '../data/countries';
+import { hasExternalConsent, COOKIE_CONSENT_EVENT } from '../utils/cookieConsent';
 
 const initial = {
   customerName: '',
@@ -60,6 +61,7 @@ export default function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [addressConfirmed, setAddressConfirmed] = useState(false);
   const [deliveryTooFar, setDeliveryTooFar] = useState(false);
+  const [externalConsent, setExternalConsent] = useState(() => hasExternalConsent());
 
   // PayPal state
   const [paypalConfig, setPaypalConfig] = useState(null); // { clientId, currency, mode }
@@ -98,18 +100,35 @@ export default function Checkout() {
     }
   }, [user]);
 
-  // load PayPal config + sdk on demand
   useEffect(() => {
+    const sync = () => setExternalConsent(hasExternalConsent());
+    window.addEventListener(COOKIE_CONSENT_EVENT, sync);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
+    if (!externalConsent && form.paymentMethod === 'PAYPAL') {
+      setForm((f) => ({ ...f, paymentMethod: 'CASH' }));
+    }
+  }, [externalConsent, form.paymentMethod]);
+
+  // load PayPal config + sdk on demand (only with cookie consent)
+  useEffect(() => {
+    if (!externalConsent) {
+      setPaypalConfig(null);
+      setPaypalReady(false);
+      return;
+    }
     api.get('/paypal/config')
       .then((r) => {
         // Backend now doesn't send "enabled" so assume true if client exists
         if (r.data?.clientId) setPaypalConfig(r.data);
       })
       .catch(() => {});
-  }, []);
+  }, [externalConsent]);
 
   useEffect(() => {
-    if (!paypalConfig?.clientId) return;
+    if (!externalConsent || !paypalConfig?.clientId) return;
     if (window.paypal) { setPaypalReady(true); return; }
 
     // If script is already in DOM (e.g. strict-mode double-invoke), wait for it
@@ -125,7 +144,7 @@ export default function Checkout() {
     s.onload = () => setPaypalReady(true);
     s.onerror = () => toast.error('PayPal konnte nicht geladen werden');
     document.body.appendChild(s);
-  }, [paypalConfig]);
+  }, [paypalConfig, externalConsent]);
 
   if (items.length && !token) {
     return <Navigate to="/login?next=/checkout" replace />;
@@ -451,7 +470,7 @@ export default function Checkout() {
           )}
           <div className={`grid grid-cols-1 gap-3 ${!infoComplete ? 'pointer-events-none' : ''}`}>
             <PayOption form={form} setForm={setForm} value="CASH" label="Bar bei Lieferung" disabled={!infoComplete} />
-            {paypalConfig?.clientId && (
+            {externalConsent && paypalConfig?.clientId && (
               <PayOption form={form} setForm={setForm} value="PAYPAL" label="PayPal" disabled={!infoComplete} />
             )}
           </div>

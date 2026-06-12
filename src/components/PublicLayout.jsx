@@ -8,6 +8,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import scrollToTop from '../utils/scrollToTop';
 import { useSiteSettings } from '../store/siteSettings';
 import NewsBanner from './NewsBanner';
+import CookieConsent from './CookieConsent';
 
 export default function PublicLayout() {
   const { pathname } = useLocation();
@@ -32,6 +33,7 @@ export default function PublicLayout() {
       <main className="flex-1"><Outlet /></main>
       <Footer />
       <CartDrawer />
+      <CookieConsent />
     </div>
   );
 }

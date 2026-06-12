@@ -14,6 +14,7 @@ const NAV = [
   { to: '/admin/legal-pages',               label: 'Rechtliches',     icon: <Ic d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8" />, role: ['ADMIN'] },
   { to: '/admin/delivery-zones',            label: 'Lieferzonen',       icon: <Ic d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-1.447-.894L15 9m0 8V9m0 0L9 7" />, role: ['ADMIN'] },
   { to: '/admin/r2o',                       label: 'ready2order',       icon: <Ic d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />, role: ['ADMIN'] },
+  { to: '/admin/paypal',                    label: 'PayPal',            icon: <Ic d="M7 9h10M7 15h6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />, role: ['ADMIN'] },
   { to: '/admin/subadmins',                 label: 'Subadmins',         icon: <Ic d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />, role: ['ADMIN'] },
   { to: '/admin/customers',                 label: 'Kunden',            icon: <Ic d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />, role: ['ADMIN'] },
   { to: '/admin/notifications',             label: 'Benachrichtigungen',icon: <Ic d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /> },
