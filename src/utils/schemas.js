@@ -152,6 +152,13 @@ const paypalCreate = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
 });
 
+const paypalConfig = Joi.object({
+  clientId: Joi.string().min(8).max(200).required(),
+  clientSecret: Joi.string().min(8).max(200).required(),
+  mode: Joi.string().valid('sandbox', 'live').default('sandbox'),
+  currency: Joi.string().length(3).uppercase().default('EUR'),
+});
+
 const deliveryZone = Joi.object({
   postalCode: Joi.string().min(2).max(20).required(),
   label: Joi.string().max(80).allow('', null).default(''),
@@ -190,6 +197,7 @@ module.exports = {
   category, tag, extra, menuItem,
   orderCreate, orderEdit, orderStatus, orderAccept, orderDecline,
   paypalCreate,
+  paypalConfig,
   forgotPassword, resetPassword,
   deliveryZone, coupon, legalPage, ordersAccepted,
 };

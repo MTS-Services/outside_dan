@@ -73,6 +73,7 @@ server.listen(config.port, async () => {
   try {
     await siteSettingService.ensureDefaults();
     await require('./services/r2oConfigService').ensureLoaded();
+    await require('./services/paypalConfigService').ensureLoaded();
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Site settings defaults failed:', err.message);

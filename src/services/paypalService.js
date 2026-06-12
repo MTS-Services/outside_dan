@@ -5,25 +5,33 @@
  *   - POST /v2/checkout/orders/{id}/capture    (capture after buyer approves)
  */
 const axios = require('axios');
-const config = require('../config');
-
-const BASE = config.paypal.mode === 'live'
-  ? 'https://api-m.paypal.com'
-  : 'https://api-m.sandbox.paypal.com';
+const paypalConfig = require('./paypalConfigService');
 
 let _token = null;
 let _tokenExp = 0;
 
-function isConfigured() {
-  return Boolean(config.paypal.clientId && config.paypal.clientSecret);
+function getApiBase(mode) {
+  return mode === 'live'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com';
+}
+
+async function isConfigured() {
+  await paypalConfig.ensureLoaded();
+  return paypalConfig.isKeyValid(paypalConfig.getClientIdSync())
+    && paypalConfig.isKeyValid(paypalConfig.getClientSecretSync());
 }
 
 async function getAccessToken() {
-  if (!isConfigured()) throw new Error('PayPal not configured');
+  if (!(await isConfigured())) throw new Error('PayPal not configured');
   if (_token && Date.now() < _tokenExp - 30_000) return _token;
-  const auth = Buffer.from(`${config.paypal.clientId}:${config.paypal.clientSecret}`).toString('base64');
+
+  const clientId = paypalConfig.getClientIdSync();
+  const clientSecret = paypalConfig.getClientSecretSync();
+  const base = getApiBase(paypalConfig.getModeSync());
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   const { data } = await axios.post(
-    `${BASE}/v1/oauth2/token`,
+    `${base}/v1/oauth2/token`,
     'grant_type=client_credentials',
     { headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' } }
   );
@@ -33,17 +41,19 @@ async function getAccessToken() {
 }
 
 /** Create a PayPal order. Returns { id, status, links }. */
-async function createOrder({ amount, currency = config.paypal.currency, reference }) {
+async function createOrder({ amount, currency, reference }) {
   const tok = await getAccessToken();
+  const resolvedCurrency = currency || paypalConfig.getCurrencySync();
+  const base = getApiBase(paypalConfig.getModeSync());
   const { data } = await axios.post(
-    `${BASE}/v2/checkout/orders`,
+    `${base}/v2/checkout/orders`,
     {
       intent: 'CAPTURE',
       purchase_units: [
         {
           reference_id: reference || 'rr-order',
           amount: {
-            currency_code: currency,
+            currency_code: resolvedCurrency,
             value: Number(amount).toFixed(2),
           },
         },
@@ -62,8 +72,9 @@ async function createOrder({ amount, currency = config.paypal.currency, referenc
 /** Capture a PayPal order. Returns full capture details on success. */
 async function captureOrder(paypalOrderId) {
   const tok = await getAccessToken();
+  const base = getApiBase(paypalConfig.getModeSync());
   const { data } = await axios.post(
-    `${BASE}/v2/checkout/orders/${paypalOrderId}/capture`,
+    `${base}/v2/checkout/orders/${paypalOrderId}/capture`,
     {},
     { headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } }
   );
@@ -92,17 +103,36 @@ function isCaptureSuccessful(captureResp) {
 /** Refund a captured payment. Refunds the full amount if no amount is provided. */
 async function refundCapture(captureId, { amount, currency, note } = {}) {
   const tok = await getAccessToken();
+  const base = getApiBase(paypalConfig.getModeSync());
   const body = {};
   if (amount) {
-    body.amount = { currency_code: currency || config.paypal.currency, value: Number(amount).toFixed(2) };
+    body.amount = {
+      currency_code: currency || paypalConfig.getCurrencySync(),
+      value: Number(amount).toFixed(2),
+    };
   }
   if (note) body.note_to_payer = String(note).slice(0, 255);
   const { data } = await axios.post(
-    `${BASE}/v2/payments/captures/${captureId}/refund`,
+    `${base}/v2/payments/captures/${captureId}/refund`,
     body,
     { headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } }
   );
-  return data; // { id, status: 'COMPLETED'|'PENDING', ... }
+  return data;
+}
+
+function invalidateTokenCache() {
+  _token = null;
+  _tokenExp = 0;
+}
+
+async function clientId() {
+  await paypalConfig.ensureLoaded();
+  return paypalConfig.getClientIdSync();
+}
+
+async function currency() {
+  await paypalConfig.ensureLoaded();
+  return paypalConfig.getCurrencySync();
 }
 
 module.exports = {
@@ -113,6 +143,7 @@ module.exports = {
   getCaptureId,
   getCaptureAmount,
   isCaptureSuccessful,
-  clientId: () => config.paypal.clientId,
-  currency: () => config.paypal.currency,
+  invalidateTokenCache,
+  clientId,
+  currency,
 };
