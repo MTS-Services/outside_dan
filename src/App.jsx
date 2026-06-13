@@ -33,6 +33,7 @@ import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminLegalPages from './pages/admin/AdminLegalPages';
 import AdminR2O from './pages/admin/AdminR2O';
 import AdminPayPal from './pages/admin/AdminPayPal';
+import AdminMessages from './pages/admin/AdminMessages';
 import AGB from './pages/AGB';
 
 export default function App() {
@@ -68,6 +69,7 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminOverview />} />
         <Route path="orders" element={<AdminOrders />} />
+        <Route path="messages" element={<AdminMessages />} />
         <Route path="menu" element={<AdminMenu />} />
         <Route path="home-categories" element={<AdminHomeCategories />} />
         <Route path="gallery" element={<AdminGallery />} />

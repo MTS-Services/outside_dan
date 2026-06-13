@@ -7,6 +7,7 @@ import PushPromptModal from '../../components/PushPromptModal';
 const NAV = [
   { to: '/admin',                end: true, label: 'Übersicht',         icon: <Ic d="M3 13l9-9 9 9M5 11v9h14v-9" /> },
   { to: '/admin/orders',                    label: 'Bestellungen',      icon: <Ic d="M3 6h18M3 12h18M3 18h18" /> },
+  { to: '/admin/messages',                  label: 'Kontakt',           icon: <Ic d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6" /> },
   { to: '/admin/menu',                      label: 'Speisekarte',       icon: <Ic d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z" />, role: ['ADMIN', 'SUBADMIN', 'STAFF'] },
   { to: '/admin/home-categories',           label: 'Startseite',        icon: <Ic d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10" />, role: ['ADMIN'] },
   { to: '/admin/gallery',                   label: 'Galerie',           icon: <Ic d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2l1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />, role: ['ADMIN'] },

@@ -37,11 +37,15 @@ export default function Contact() {
   function onSubmit(e) {
     e.preventDefault();
     setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      toast.success('Nachricht gesendet! Wir melden uns in Kürze.');
-      setForm({ name: '', email: '', phone: '', subject: '', message: '' });
-    }, 1200);
+    api.post('/contact', form)
+      .then(() => {
+        toast.success('Nachricht gesendet! Wir melden uns in Kürze.');
+        setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+      })
+      .catch((err) => {
+        toast.error(err.displayMessage || 'Senden fehlgeschlagen. Bitte erneut versuchen.');
+      })
+      .finally(() => setSending(false));
   }
 
   useGSAP(

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useCart, useCartUI } from '../store/cart';
+import { useAuth } from '../store/auth';
 import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import Icon from './Icon';
 
@@ -16,6 +17,8 @@ export default function CartDrawer() {
   const remove = useCart((s) => s.remove);
   const subtotal = useCart((s) => s.subtotal());
   const { canOrder } = useOrderGuard();
+  const { token } = useAuth();
+  const checkoutTo = token ? '/checkout' : '/login?next=/checkout';
 
   const backdropRef = useRef(null);
   const panelRef = useRef(null);
@@ -206,7 +209,7 @@ export default function CartDrawer() {
             )}
             {canOrder ? (
               <Link
-                to="/checkout"
+                to={checkoutTo}
                 onClick={close}
                 className="btn-primary w-full justify-center py-3 text-base"
               >

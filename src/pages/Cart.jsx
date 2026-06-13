@@ -1,15 +1,18 @@
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '../store/cart';
+import { useAuth } from '../store/auth';
 import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
 import Icon from '../components/Icon';
 
 export default function Cart() {
   const { items, setQty, remove, subtotal } = useCart();
+  const { token } = useAuth();
   const { canOrder } = useOrderGuard();
   const sub = subtotal();
   const fee = items.length ? 2.5 : 0;
   const total = sub + fee;
+  const checkoutTo = token ? '/checkout' : '/login?next=/checkout';
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
@@ -69,7 +72,7 @@ export default function Cart() {
               <p className="text-sm text-amber-400/90 mt-4">{ORDERS_CLOSED_MESSAGE}</p>
             )}
             {canOrder ? (
-              <Link to="/checkout" className="btn-primary w-full mt-6 justify-center">
+              <Link to={checkoutTo} className="btn-primary w-full mt-6 justify-center">
                 Zur Kasse <Icon name="arrowRight" className="w-4 h-4" />
               </Link>
             ) : (
