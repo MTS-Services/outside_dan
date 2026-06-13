@@ -277,4 +277,37 @@ async function sendTestEmailToAdmin(adminEmail) {
   });
 }
 
-module.exports = { send, sendOrderAccepted, sendOrderDeclined, sendNewOrderToAdmin, sendTestEmailToAdmin, isConfigured };
+async function contactAdminHTML(msg) {
+  const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
+  return shellHTML({
+    title: 'Neue Kontaktnachricht',
+    preheader: `Neue Nachricht von ${msg.name}`,
+    content: `
+      <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:36px;letter-spacing:2px;margin:0 0 6px;color:#D9AF47;">NEUE KONTAKTNACHRICHT</h1>
+      <div style="margin-bottom:16px;padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;font-size:14px;color:rgba(255,255,255,0.85);">
+        <div style="margin-bottom:6px;"><strong>Name:</strong> ${msg.name}</div>
+        <div style="margin-bottom:6px;"><strong>E-Mail:</strong> ${msg.email}</div>
+        <div style="margin-bottom:6px;"><strong>Telefon:</strong> ${msg.phone || '—'}</div>
+        <div style="margin-bottom:6px;"><strong>Betreff:</strong> ${msg.subject || '—'}</div>
+      </div>
+      <div style="padding:14px 16px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:14px;color:rgba(255,255,255,0.85);white-space:pre-wrap;">${msg.message}</div>
+      <div style="margin-top:20px;">
+        <a href="${config.clientUrl}/admin/messages" style="display:inline-block;padding:12px 28px;background:#D9AF47;color:#000;font-weight:700;border-radius:8px;text-decoration:none;font-size:15px;">Nachricht öffnen</a>
+      </div>`,
+    settings,
+    hasLogo,
+  });
+}
+
+async function sendContactToAdmin(msg, adminEmails) {
+  if (!adminEmails || adminEmails.length === 0) return;
+  const to = Array.isArray(adminEmails) ? adminEmails.join(', ') : adminEmails;
+  return send({
+    to,
+    subject: `Kontakt: ${msg.subject || 'Neue Nachricht'} – ${msg.name}`,
+    html: await contactAdminHTML(msg),
+  });
+}
+
+module.exports = { send, sendOrderAccepted, sendOrderDeclined, sendNewOrderToAdmin, sendTestEmailToAdmin, sendContactToAdmin, isConfigured };

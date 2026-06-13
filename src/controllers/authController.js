@@ -11,6 +11,16 @@ async function register(req, res) {
   res.status(201).json(result);
 }
 
+async function resendVerification(req, res) {
+  await authService.resendVerification(req.body.email);
+  res.json({ message: 'Verification code sent' });
+}
+
+async function verifyEmail(req, res) {
+  const result = await authService.verifyEmail(req.body.email, req.body.code);
+  res.json(result);
+}
+
 async function me(req, res) {
   res.json({ user: await authService.getMe(req.user.sub) });
 }
@@ -37,4 +47,4 @@ async function updateNotificationPrefs(req, res) {
   res.json({ user: await authService.updateNotificationPrefs(req.user.sub, req.body) });
 }
 
-module.exports = { login, register, me, updateProfile, changePassword, updateNotificationPrefs, forgotPassword, resetPassword };
+module.exports = { login, register, me, updateProfile, changePassword, updateNotificationPrefs, forgotPassword, resetPassword, resendVerification, verifyEmail };

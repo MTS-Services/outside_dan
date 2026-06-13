@@ -298,3 +298,29 @@ model Coupon {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model PendingRegistration {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  name             String
+  password         String
+  phone            String?
+  phoneCountry     String?
+  verifyCode       String
+  verifyCodeExpiry DateTime
+  createdAt        DateTime @default(now())
+}

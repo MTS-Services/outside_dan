@@ -38,17 +38,99 @@ async function login(email, password) {
 }
 
 async function register({ name, email, password, phone, phoneCountry }) {
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) throw new ApiError(409, 'E-Mail bereits in Verwendung');
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiry = new Date(Date.now() + 15 * 60 * 1000);
   const hashed = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      name, email, password: hashed,
+
+  await prisma.pendingRegistration.upsert({
+    where: { email: normalizedEmail },
+    create: {
+      email: normalizedEmail,
+      name: name.trim(),
+      password: hashed,
       phone: phone || null,
       phoneCountry: phoneCountry || null,
+      verifyCode: code,
+      verifyCodeExpiry: expiry,
+    },
+    update: {
+      name: name.trim(),
+      password: hashed,
+      phone: phone || null,
+      phoneCountry: phoneCountry || null,
+      verifyCode: code,
+      verifyCodeExpiry: expiry,
+    },
+  });
+
+  await sendVerificationEmail(normalizedEmail, name.trim(), code);
+
+  return { message: 'Verification code sent', email: normalizedEmail };
+}
+
+async function sendVerificationEmail(email, name, code) {
+  const subject = 'E-Mail bestätigen – Tarantella';
+  const html = `
+    <h2>E-Mail bestätigen</h2>
+    <p>Hallo ${name},</p>
+    <p>Bitte bestätige deine E-Mail-Adresse mit diesem Code:</p>
+    <h3 style="font-size: 24px; letter-spacing: 2px;">${code}</h3>
+    <p>Dieser Code ist 15 Minuten lang gültig.</p>
+    <p>Wenn du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>
+  `;
+  try {
+    await emailService.send({ to: email, subject, html });
+  } catch (err) {
+    console.error('Verification email failed:', err);
+  }
+}
+
+async function resendVerification(email) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const pending = await prisma.pendingRegistration.findUnique({ where: { email: normalizedEmail } });
+  if (!pending) return;
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+  await prisma.pendingRegistration.update({
+    where: { email: normalizedEmail },
+    data: { verifyCode: code, verifyCodeExpiry: expiry },
+  });
+
+  await sendVerificationEmail(normalizedEmail, pending.name, code);
+}
+
+async function verifyEmail(email, code) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const pending = await prisma.pendingRegistration.findUnique({ where: { email: normalizedEmail } });
+  if (!pending || pending.verifyCode !== code) {
+    throw new ApiError(400, 'Falscher oder abgelaufener Code');
+  }
+  if (new Date() > pending.verifyCodeExpiry) {
+    throw new ApiError(400, 'Falscher oder abgelaufener Code');
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existing) throw new ApiError(409, 'E-Mail bereits in Verwendung');
+
+  const user = await prisma.user.create({
+    data: {
+      name: pending.name,
+      email: normalizedEmail,
+      password: pending.password,
+      phone: pending.phone,
+      phoneCountry: pending.phoneCountry,
       role: 'CUSTOMER',
     },
   });
+
+  await prisma.pendingRegistration.delete({ where: { email: normalizedEmail } });
+
   return { token: signToken(user), user: publicUser(user) };
 }
 
@@ -158,5 +240,6 @@ module.exports = {
   login, register, getMe,
   updateProfile, changePassword, updateNotificationPrefs,
   forgotPassword, resetPassword,
+  resendVerification, verifyEmail,
   signToken, publicUser,
 };

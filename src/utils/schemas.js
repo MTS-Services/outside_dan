@@ -190,6 +190,27 @@ const ordersAccepted = Joi.object({
   orders_accepted: Joi.boolean().required(),
 });
 
+const contactSubmit = Joi.object({
+  name: Joi.string().min(2).max(120).required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
+  phone: Joi.string().max(40).allow('', null),
+  subject: Joi.string().max(120).allow('', null),
+  message: Joi.string().min(5).max(5000).required(),
+});
+
+const contactRead = Joi.object({
+  isRead: Joi.boolean(),
+});
+
+const verifyEmail = Joi.object({
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
+  code: Joi.string().length(6).required(),
+});
+
+const resendVerification = Joi.object({
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
+});
+
 module.exports = {
   login, register,
   profileUpdate, passwordChange, notifPrefs,
@@ -200,4 +221,5 @@ module.exports = {
   paypalConfig,
   forgotPassword, resetPassword,
   deliveryZone, coupon, legalPage, ordersAccepted,
+  contactSubmit, contactRead, verifyEmail, resendVerification,
 };

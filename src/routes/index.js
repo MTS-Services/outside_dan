@@ -15,6 +15,7 @@ router.use('/delivery-zones', require('./deliveryZoneRoutes'));
 router.use('/geocode', require('./geocodeRoutes'));
 router.use('/maps', require('./mapsRoutes'));
 router.use('/legal-pages', require('./legalPageRoutes'));
+router.use('/contact', require('./contactRoutes'));
 
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
