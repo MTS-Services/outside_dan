@@ -69,7 +69,7 @@ async function register({ name, email, password, phone, phoneCountry }) {
 
   await sendVerificationEmail(normalizedEmail, name.trim(), code);
 
-  return { message: 'Verification code sent', email: normalizedEmail };
+  return { message: 'Bestätigungscode wurde gesendet', email: normalizedEmail };
 }
 
 async function sendVerificationEmail(email, name, code) {

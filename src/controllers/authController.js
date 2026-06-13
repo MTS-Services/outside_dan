@@ -13,7 +13,7 @@ async function register(req, res) {
 
 async function resendVerification(req, res) {
   await authService.resendVerification(req.body.email);
-  res.json({ message: 'Verification code sent' });
+  res.json({ message: 'Bestätigungscode wurde gesendet' });
 }
 
 async function verifyEmail(req, res) {
@@ -31,12 +31,12 @@ async function updateProfile(req, res) {
 
 async function forgotPassword(req, res) {
   await authService.forgotPassword(req.body.email);
-  res.json({ message: 'Reset code sent to email' });
+  res.json({ message: 'Code wurde an Ihre E-Mail gesendet' });
 }
 
 async function resetPassword(req, res) {
   await authService.resetPassword(req.body.email, req.body.code, req.body.newPassword);
-  res.json({ message: 'Password reset successful' });
+  res.json({ message: 'Passwort erfolgreich zurückgesetzt' });
 }
 
 async function changePassword(req, res) {
