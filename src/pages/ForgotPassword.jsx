@@ -7,7 +7,9 @@ import { useCountdown } from '../hooks/useCountdown';
 
 export default function ForgotPassword() {
   const [step, setStep] = useState(1);
-  const [busy, setBusy] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
   const { seconds: timer, running: timerRunning, start: startTimer } = useCountdown();
   const navigate = useNavigate();
 
@@ -21,7 +23,7 @@ export default function ForgotPassword() {
     e?.preventDefault();
     if (!form.email) return;
 
-    setBusy(true);
+    setRequestBusy(true);
     try {
       await api.post('/auth/forgot-password', { email: form.email });
       toast.success('Ein 6-stelliger Code wurde an Ihre E-Mail gesendet.');
@@ -30,13 +32,28 @@ export default function ForgotPassword() {
     } catch (err) {
       toast.error(err.displayMessage || 'Fehler beim Senden des Codes');
     } finally {
-      setBusy(false);
+      setRequestBusy(false);
+    }
+  }
+
+  async function onResendCode() {
+    if (timerRunning || resendBusy || !form.email) return;
+
+    setResendBusy(true);
+    try {
+      await api.post('/auth/forgot-password', { email: form.email });
+      toast.success('Neuer Code wurde gesendet.');
+      startTimer(30);
+    } catch (err) {
+      toast.error(err.displayMessage || 'Fehler beim Senden des Codes');
+    } finally {
+      setResendBusy(false);
     }
   }
 
   async function onResetPassword(e) {
     e?.preventDefault();
-    setBusy(true);
+    setResetBusy(true);
     try {
       await api.post('/auth/reset-password', {
         email: form.email,
@@ -48,7 +65,7 @@ export default function ForgotPassword() {
     } catch (err) {
       toast.error(err.displayMessage || 'Rücksetzung fehlgeschlagen. Code ungültig?');
     } finally {
-      setBusy(false);
+      setResetBusy(false);
     }
   }
 
@@ -71,8 +88,8 @@ export default function ForgotPassword() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </label>
-            <button disabled={busy} className="btn-primary w-full justify-center">
-              {busy ? 'Wird gesendet...' : 'Code anfordern'}
+            <button disabled={requestBusy} className="btn-primary w-full justify-center">
+              {requestBusy ? 'Wird gesendet...' : 'Code anfordern'}
             </button>
           </form>
         )}
@@ -107,24 +124,30 @@ export default function ForgotPassword() {
               />
             </label>
 
-            <button disabled={busy || typeof form.code !== 'string' || form.code.length !== 6 || form.newPassword.length < 6} className="btn-primary w-full justify-center">
-              {busy ? 'Wird zurückgesetzt...' : 'Passwort neu setzen'}
+            <button
+              type="submit"
+              disabled={resetBusy || typeof form.code !== 'string' || form.code.length !== 6 || form.newPassword.length < 6}
+              className="btn-primary w-full justify-center"
+            >
+              {resetBusy ? 'Wird zurückgesetzt...' : 'Passwort neu setzen'}
             </button>
 
             <button
               type="button"
-              disabled={timerRunning || busy}
-              onClick={onRequestCode}
-              className="text-white/60 text-sm hover:text-white transition-colors w-full mt-2 min-h-[20px] tabular-nums"
+              disabled={timerRunning || resendBusy}
+              onClick={onResendCode}
+              className="btn-outline w-full justify-center text-sm py-2.5 mt-2 tabular-nums"
             >
-              {timerRunning ? (
+              {resendBusy ? (
+                'Code wird erneut gesendet…'
+              ) : timerRunning ? (
                 <>
                   Code erneut senden in{' '}
                   <span className="inline-block w-6 text-center">{timer}</span>
                   s
                 </>
               ) : (
-                'Kein Code erhalten? Erneut senden'
+                'Code erneut senden'
               )}
             </button>
           </form>

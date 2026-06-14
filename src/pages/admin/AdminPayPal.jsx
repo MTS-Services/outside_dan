@@ -53,8 +53,12 @@ export default function AdminPayPal() {
 
   async function saveConfig(e) {
     e.preventDefault();
-    if (!clientId.trim() || !clientSecret.trim()) {
-      toast.error('Client ID und Secret eingeben');
+    if (!clientId.trim()) {
+      toast.error('Client ID eingeben');
+      return;
+    }
+    if (!clientSecret.trim() && !status?.hasClientSecret) {
+      toast.error('Client Secret eingeben');
       return;
     }
     setSaving(true);
@@ -145,7 +149,7 @@ export default function AdminPayPal() {
             >
               PayPal Developer Dashboard
             </a>
-            {' '}eintragen. Die Daten werden sicher in der Datenbank gespeichert.
+            {' '}eintragen. Alle PayPal-Einstellungen werden ausschließlich in der Datenbank gespeichert (nicht in .env).
           </p>
         </div>
 

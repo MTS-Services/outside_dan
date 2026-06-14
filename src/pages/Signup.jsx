@@ -19,7 +19,9 @@ export default function Signup() {
     password: '',
     code: '',
   });
-  const [busy, setBusy] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
   const { seconds: timer, running: timerRunning, start: startTimer } = useCountdown();
   const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [pendingNav, setPendingNav] = useState(null);
@@ -57,7 +59,7 @@ export default function Signup() {
       toast.error('Bitte gib deine Telefonnummer ein');
       return;
     }
-    setBusy(true);
+    setRequestBusy(true);
     try {
       await api.post('/auth/register', {
         name: form.name,
@@ -72,13 +74,13 @@ export default function Signup() {
     } catch (err) {
       toast.error(err.displayMessage || 'Registrierung fehlgeschlagen');
     } finally {
-      setBusy(false);
+      setRequestBusy(false);
     }
   }
 
   async function onResendCode() {
-    if (timerRunning || busy) return;
-    setBusy(true);
+    if (timerRunning || resendBusy) return;
+    setResendBusy(true);
     try {
       await api.post('/auth/resend-verification', { email: form.email });
       toast.success('Neuer Code wurde gesendet.');
@@ -86,13 +88,13 @@ export default function Signup() {
     } catch (err) {
       toast.error(err.displayMessage || 'Code konnte nicht gesendet werden');
     } finally {
-      setBusy(false);
+      setResendBusy(false);
     }
   }
 
   async function onVerify(e) {
     e.preventDefault();
-    setBusy(true);
+    setVerifyBusy(true);
     try {
       const { data } = await api.post('/auth/verify-email', {
         email: form.email,
@@ -102,7 +104,7 @@ export default function Signup() {
     } catch (err) {
       toast.error(err.displayMessage || 'Verifizierung fehlgeschlagen. Code ungültig?');
     } finally {
-      setBusy(false);
+      setVerifyBusy(false);
     }
   }
 
@@ -144,8 +146,8 @@ export default function Signup() {
               <PasswordInput className="input w-full" required minLength={6} value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </label>
-            <button disabled={busy} className="btn-primary w-full justify-center">
-              {busy ? 'Code wird gesendet…' : 'Weiter – Code senden'}
+            <button disabled={requestBusy} className="btn-primary w-full justify-center">
+              {requestBusy ? 'Code wird gesendet…' : 'Weiter – Code senden'}
             </button>
           </form>
         )}
@@ -170,25 +172,28 @@ export default function Signup() {
               />
             </label>
             <button
-              disabled={busy || form.code.length !== 6}
+              type="submit"
+              disabled={verifyBusy || form.code.length !== 6}
               className="btn-primary w-full justify-center"
             >
-              {busy ? 'Konto wird erstellt…' : 'E-Mail bestätigen & Konto erstellen'}
+              {verifyBusy ? 'Konto wird erstellt…' : 'E-Mail bestätigen & Konto erstellen'}
             </button>
             <button
               type="button"
-              disabled={timerRunning || busy}
+              disabled={timerRunning || resendBusy}
               onClick={onResendCode}
-              className="text-white/60 text-sm hover:text-white transition-colors w-full min-h-[20px] tabular-nums"
+              className="btn-outline w-full justify-center text-sm py-2.5 tabular-nums"
             >
-              {timerRunning ? (
+              {resendBusy ? (
+                'Code wird erneut gesendet…'
+              ) : timerRunning ? (
                 <>
                   Code erneut senden in{' '}
                   <span className="inline-block w-6 text-center">{timer}</span>
                   s
                 </>
               ) : (
-                'Kein Code erhalten? Erneut senden'
+                'Code erneut senden'
               )}
             </button>
             <button
