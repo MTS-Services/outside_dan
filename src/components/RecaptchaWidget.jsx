@@ -86,7 +86,7 @@ const RecaptchaWidget = forwardRef(function RecaptchaWidget({ siteKey, version =
             containerRef.current.innerHTML = '';
             widgetIdRef.current = grecaptcha.render(containerRef.current, {
               sitekey: siteKey,
-              theme: 'dark',
+              theme: 'light',
             });
             setReady(true);
           } catch (err) {
@@ -119,23 +119,14 @@ const RecaptchaWidget = forwardRef(function RecaptchaWidget({ siteKey, version =
   }
 
   return (
-    <div className="space-y-2">
-      <div
-        className={`min-h-[78px] flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-3 ${
-          loadError ? 'border-red-500/30' : ''
-        }`}
-      >
-        {!ready && !loadError && (
-          <span className="text-sm text-white/45">Sicherheitsprüfung wird geladen…</span>
-        )}
-        {loadError && (
-          <span className="text-sm text-red-400 text-center">{loadError}</span>
-        )}
-        <div ref={containerRef} className={ready ? 'flex justify-center' : 'hidden'} />
-      </div>
-      <p className="text-xs text-white/40 text-center">
-        Bitte das Kontrollkästchen „Ich bin kein Roboter“ anklicken.
-      </p>
+    <div className="flex flex-col items-center gap-2">
+      {!ready && !loadError && (
+        <span className="text-sm text-white/45">Sicherheitsprüfung wird geladen…</span>
+      )}
+      {loadError && (
+        <span className="text-sm text-red-400 text-center">{loadError}</span>
+      )}
+      <div ref={containerRef} className={ready ? 'flex justify-center' : 'hidden'} />
     </div>
   );
 });
