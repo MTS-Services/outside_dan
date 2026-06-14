@@ -86,9 +86,9 @@ function resolveLogoPath() {
 }
 
 function shellHTML({ title, preheader, content, settings = {}, hasLogo = false }) {
-  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
-  const address = settings.restaurant_address || config.restaurant.address || '';
-  const phone = settings.restaurant_phone || config.restaurant.phone || '';
+  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella Pizza Pasta Napoli';
+  const address = settings.restaurant_address || config.restaurant.address || 'Sonnenweg 11, 8793 Trofaiach';
+  const phone = settings.restaurant_phone || config.restaurant.phone || '+43 676 632 86 77';
   const footer = [name, address, phone].filter(Boolean).join(' · ');
   const logoBlock = hasLogo
     ? `<img src="cid:email-logo" alt="${name}" style="height:52px;width:auto;display:block;margin:0 auto;" />`
@@ -211,7 +211,7 @@ async function sendOrderDeclined(order) {
 async function newOrderAdminHTML(order, driveInfo = null) {
   const settings = await loadSettings();
   const hasLogo = Boolean(resolveLogoPath());
-  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella';
+  const name = settings.restaurant_name || config.restaurant.name || 'Tarantella Pizza Pasta Napoli';
   const driveBlock = driveInfo?.minutes != null
     ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;font-size:13px;${
         driveInfo.tooFar

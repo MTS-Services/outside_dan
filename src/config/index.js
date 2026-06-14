@@ -19,9 +19,9 @@ module.exports = {
     interface: process.env.PRINTER_INTERFACE || 'tcp://192.168.1.50:9100',
   },
   restaurant: {
-    name: process.env.RESTAURANT_NAME || 'Restaurant',
-    address: process.env.RESTAURANT_ADDRESS || '',
-    phone: process.env.RESTAURANT_PHONE || '',
+    name: 'Tarantella Pizza Pasta Napoli',
+    address:  'Sonnenweg 11, 8793 Trofaiach',
+    phone: '+43 676 632 86 77',
   },
   googleMaps: {
     apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
