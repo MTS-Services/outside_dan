@@ -31,12 +31,6 @@ module.exports = {
     privateKey: process.env.VAPID_PRIVATE_KEY || '',
     email: process.env.VAPID_EMAIL || 'mailto:admin@example.com',
   },
-  paypal: {
-    clientId: process.env.PAYPAL_CLIENT_ID || '',
-    clientSecret: process.env.PAYPAL_CLIENT_SECRET || '',
-    mode: (process.env.PAYPAL_MODE || 'sandbox').toLowerCase(),
-    currency: process.env.PAYPAL_CURRENCY || 'EUR',
-  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '587', 10),

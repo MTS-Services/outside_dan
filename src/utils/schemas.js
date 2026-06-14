@@ -154,7 +154,7 @@ const paypalCreate = Joi.object({
 
 const paypalConfig = Joi.object({
   clientId: Joi.string().min(8).max(200).required(),
-  clientSecret: Joi.string().min(8).max(200).required(),
+  clientSecret: Joi.string().min(8).max(200).allow('').optional(),
   mode: Joi.string().valid('sandbox', 'live').default('sandbox'),
   currency: Joi.string().length(3).uppercase().default('EUR'),
 });

@@ -42,7 +42,12 @@ async function status(req, res) {
 async function saveConfig(req, res) {
   const { clientId, clientSecret, mode, currency } = req.body || {};
   if (!clientId || !String(clientId).trim()) throw new ApiError(400, 'Client ID ist erforderlich');
-  if (!clientSecret || !String(clientSecret).trim()) throw new ApiError(400, 'Client Secret ist erforderlich');
+
+  const status = await paypalConfig.getStatus();
+  const hasSecret = clientSecret && String(clientSecret).trim();
+  if (!hasSecret && !status.hasClientSecret) {
+    throw new ApiError(400, 'Client Secret ist erforderlich');
+  }
 
   try {
     const result = await paypalConfig.setConfig({ clientId, clientSecret, mode, currency });
