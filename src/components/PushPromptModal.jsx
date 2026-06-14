@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { subscribeToPush, pushSupported } from '../api/push';
 
 /**
  * Shown when push is supported but the browser is not subscribed yet.
- * Explains why we need push notifications, then triggers subscribe flow.
  */
 export default function PushPromptModal({ onDone, kitchen = false }) {
   const [busy, setBusy] = useState(false);
+  const supported = pushSupported();
+
+  useEffect(() => {
+    if (!supported) onDone?.();
+  }, [supported, onDone]);
 
   async function handleEnable() {
     setBusy(true);
@@ -20,10 +24,7 @@ export default function PushPromptModal({ onDone, kitchen = false }) {
     }
   }
 
-  if (!pushSupported()) {
-    onDone?.();
-    return null;
-  }
+  if (!supported) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">

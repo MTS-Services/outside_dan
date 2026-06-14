@@ -27,6 +27,13 @@
     -webkit-overflow-scrolling: touch;
   }
   .lenis.lenis-stopped { overflow: clip; }
+
+  /* Auth pages (signup/login): keep content visible — Lenis can blank short pages */
+  html.auth-page.lenis,
+  html.auth-page.lenis body {
+    overflow-y: auto !important;
+    height: auto !important;
+  }
 }
 
 @layer components {

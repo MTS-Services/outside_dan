@@ -10,9 +10,12 @@ import { useSiteSettings } from '../store/siteSettings';
 import NewsBanner from './NewsBanner';
 import CookieConsent from './CookieConsent';
 
+const AUTH_PATHS = new Set(['/login', '/signup', '/forgot-password']);
+
 export default function PublicLayout() {
   const { pathname } = useLocation();
   const loadSiteSettings = useSiteSettings((s) => s.load);
+  const isAuthPage = AUTH_PATHS.has(pathname);
 
   useEffect(() => {
     loadSiteSettings();
@@ -25,12 +28,25 @@ export default function PublicLayout() {
     return () => clearTimeout(t);
   }, [pathname]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isAuthPage) {
+      root.classList.add('auth-page');
+      window.scrollTo(0, 0);
+      window.__lenis?.scrollTo?.(0, { immediate: true, force: true });
+    } else {
+      root.classList.remove('auth-page');
+    }
+  }, [isAuthPage]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <SmoothScroll />
       <NewsBanner />
       <Navbar />
-      <main className="flex-1"><Outlet /></main>
+      <main className={`flex-1 ${isAuthPage ? 'min-h-[60vh]' : ''}`} data-lenis-prevent={isAuthPage ? '' : undefined}>
+        <Outlet />
+      </main>
       <Footer />
       <CartDrawer />
       <CookieConsent />

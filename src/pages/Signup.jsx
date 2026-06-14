@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../api/client';
@@ -7,6 +7,7 @@ import { subscribeToPush, pushSupported } from '../api/push';
 import PhoneInput from '../components/PhoneInput';
 import PushPromptModal from '../components/PushPromptModal';
 import PasswordInput from '../components/PasswordInput';
+import { useCountdown } from '../hooks/useCountdown';
 
 export default function Signup() {
   const [step, setStep] = useState(1);
@@ -19,21 +20,13 @@ export default function Signup() {
     code: '',
   });
   const [busy, setBusy] = useState(false);
-  const [timer, setTimer] = useState(0);
+  const { seconds: timer, running: timerRunning, start: startTimer } = useCountdown();
   const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [pendingNav, setPendingNav] = useState(null);
   const { setSession } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
   const next = new URLSearchParams(loc.search).get('next') || '/account';
-
-  useEffect(() => {
-    if (timer <= 0) return undefined;
-    const interval = setInterval(() => {
-      setTimer((t) => (t <= 1 ? 0 : t - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timer > 0]);
 
   function doNavigate(role) {
     if (role === 'ADMIN' || role === 'SUBADMIN' || role === 'STAFF') {
@@ -75,7 +68,7 @@ export default function Signup() {
       });
       toast.success('Bestätigungscode wurde an deine E-Mail gesendet.');
       setStep(2);
-      setTimer(30);
+      startTimer(30);
     } catch (err) {
       toast.error(err.displayMessage || 'Registrierung fehlgeschlagen');
     } finally {
@@ -84,12 +77,12 @@ export default function Signup() {
   }
 
   async function onResendCode() {
-    if (timer > 0 || busy) return;
+    if (timerRunning || busy) return;
     setBusy(true);
     try {
       await api.post('/auth/resend-verification', { email: form.email });
       toast.success('Neuer Code wurde gesendet.');
-      setTimer(30);
+      startTimer(30);
     } catch (err) {
       toast.error(err.displayMessage || 'Code konnte nicht gesendet werden');
     } finally {
@@ -167,7 +160,9 @@ export default function Signup() {
               <input
                 className="input tracking-[0.5em] text-center font-bold text-lg"
                 type="text"
-                maxLength="6"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
                 required
                 placeholder="000000"
                 value={form.code}
@@ -182,11 +177,11 @@ export default function Signup() {
             </button>
             <button
               type="button"
-              disabled={timer > 0 || busy}
+              disabled={timerRunning || busy}
               onClick={onResendCode}
               className="text-white/60 text-sm hover:text-white transition-colors w-full min-h-[20px] tabular-nums"
             >
-              {timer > 0 ? (
+              {timerRunning ? (
                 <>
                   Code erneut senden in{' '}
                   <span className="inline-block w-6 text-center">{timer}</span>
