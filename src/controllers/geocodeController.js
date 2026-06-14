@@ -43,10 +43,19 @@ async function driveRoute(req, res, next) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return res.status(400).json({ error: 'lat und lon erforderlich' });
     }
-    const origin = await distanceService.getRestaurantAddress();
-    if (!origin) return res.status(503).json({ error: 'Restaurant-Adresse nicht konfiguriert' });
 
-    const dest = `${lat},${lon}`;
+    const resolved = await distanceService.resolveRouteEndpoints({
+      lat,
+      lon,
+      street: req.query.street,
+      houseNumber: req.query.houseNumber,
+      postalCode: req.query.postalCode,
+      city: req.query.city,
+      label: req.query.label,
+    });
+    if (resolved.error) return res.status(503).json({ error: resolved.error });
+
+    const { origin, dest, end, restaurantStart, originAddress, destinationLabel } = resolved;
     let route = await googleMaps.getDrivingDirections(origin, dest);
 
     if (route?.error || !route?.polyline) {
@@ -58,13 +67,15 @@ async function driveRoute(req, res, next) {
             : (route?.error || 'Route konnte nicht berechnet werden'),
         });
       }
-      const restaurant = await googleMaps.geocodeAddress(origin);
       route = {
         ...matrix,
         polyline: '',
-        start: restaurant ? { lat: restaurant.lat, lng: restaurant.lon } : null,
-        end: { lat, lng: lon },
+        start: restaurantStart,
+        end,
       };
+    } else {
+      route.start = route.start || restaurantStart;
+      route.end = end;
     }
 
     const maxMinutes = await distanceService.getMaxDeliveryMinutes();
@@ -72,7 +83,8 @@ async function driveRoute(req, res, next) {
       ...route,
       maxMinutes,
       tooFar: route.minutes > maxMinutes,
-      origin,
+      origin: originAddress,
+      destination: destinationLabel,
     });
   } catch (e) { next(e); }
 }

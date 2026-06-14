@@ -77,6 +77,8 @@ async function getDrivingRoute(origin, destination) {
       origins: origin,
       destinations: destination,
       mode: 'driving',
+      departure_time: Math.floor(Date.now() / 1000),
+      traffic_model: 'best_guess',
       language: 'de',
       region: 'at',
       key: getApiKey(),
@@ -86,11 +88,13 @@ async function getDrivingRoute(origin, destination) {
   if (data.status !== 'OK') return null;
   const el = data.rows?.[0]?.elements?.[0];
   if (!el || el.status !== 'OK') return null;
+  const duration = el.duration_in_traffic || el.duration;
   return {
-    minutes: Math.ceil(el.duration.value / 60),
+    minutes: Math.max(1, Math.round(duration.value / 60)),
     distanceKm: Math.round((el.distance.value / 1000) * 10) / 10,
-    durationText: el.duration.text,
+    durationText: duration.text,
     distanceText: el.distance.text,
+    withTraffic: Boolean(el.duration_in_traffic),
   };
 }
 
@@ -100,6 +104,8 @@ async function getDrivingDirections(origin, destination) {
       origin,
       destination,
       mode: 'driving',
+      departure_time: Math.floor(Date.now() / 1000),
+      traffic_model: 'best_guess',
       language: 'de',
       region: 'at',
       key: getApiKey(),
@@ -113,14 +119,16 @@ async function getDrivingDirections(origin, destination) {
   }
   const route = data.routes[0];
   const leg = route.legs[0];
+  const duration = leg.duration_in_traffic || leg.duration;
   return {
-    minutes: Math.ceil(leg.duration.value / 60),
+    minutes: Math.max(1, Math.round(duration.value / 60)),
     distanceKm: Math.round((leg.distance.value / 1000) * 10) / 10,
-    durationText: leg.duration.text,
+    durationText: duration.text,
     distanceText: leg.distance.text,
     polyline: route.overview_polyline?.points || '',
     start: leg.start_location,
     end: leg.end_location,
+    withTraffic: Boolean(leg.duration_in_traffic),
   };
 }
 

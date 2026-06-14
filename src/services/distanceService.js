@@ -26,9 +26,60 @@ function setCache(key, value) {
   cache.set(key, { at: Date.now(), value });
 }
 
+let restaurantCoordsCache = null;
+
 async function getRestaurantAddress() {
   const fromSettings = await siteSettings.getSetting('restaurant_address', '');
   return (fromSettings || config.restaurant.address || '').trim();
+}
+
+async function getRestaurantCoords() {
+  if (restaurantCoordsCache) return restaurantCoordsCache;
+  const address = await getRestaurantAddress();
+  if (!address) return null;
+  const hit = await googleMaps.geocodeAddress(address);
+  if (!hit) return null;
+  restaurantCoordsCache = { lat: hit.lat, lon: hit.lon, label: hit.label || address };
+  return restaurantCoordsCache;
+}
+
+function buildDestinationQuery({ street, houseNumber, postalCode, city, label }) {
+  const line = [street, houseNumber].filter(Boolean).join(' ').trim();
+  const locality = (city || label || '').trim();
+  const parts = [line];
+  if (postalCode && locality) parts.push(`${postalCode} ${locality}`);
+  else if (postalCode) parts.push(postalCode);
+  else if (locality) parts.push(locality);
+  return parts.join(', ');
+}
+
+async function resolveRouteEndpoints({ lat, lon, street, houseNumber, postalCode, city, label }) {
+  const restaurant = await getRestaurantCoords();
+  if (!restaurant) return { error: 'Restaurant-Adresse nicht konfiguriert' };
+
+  const origin = `${restaurant.lat},${restaurant.lon}`;
+  let dest = `${lat},${lon}`;
+  let end = { lat, lng: lon };
+  let destinationLabel = null;
+
+  const addressQuery = buildDestinationQuery({ street, houseNumber, postalCode, city, label });
+  if (addressQuery) {
+    const geocoded = await googleMaps.geocodeAddress(addressQuery);
+    if (geocoded) {
+      dest = `${geocoded.lat},${geocoded.lon}`;
+      end = { lat: geocoded.lat, lng: geocoded.lon };
+      destinationLabel = geocoded.label;
+    }
+  }
+
+  return {
+    origin,
+    dest,
+    end,
+    restaurantStart: { lat: restaurant.lat, lng: restaurant.lon },
+    originAddress: restaurant.label,
+    destinationLabel,
+  };
 }
 
 async function getMaxDeliveryMinutes() {
@@ -67,8 +118,11 @@ async function getDriveTimeForOrder(order) {
     return { error: 'Google Maps API nicht konfiguriert (GOOGLE_MAPS_API_KEY)' };
   }
 
-  const origin = await getRestaurantAddress();
-  if (!origin) return { error: 'Restaurant-Adresse nicht konfiguriert' };
+    const originAddr = await getRestaurantAddress();
+    if (!originAddr) return { error: 'Restaurant-Adresse nicht konfiguriert' };
+
+    const restaurant = await getRestaurantCoords();
+    const origin = restaurant ? `${restaurant.lat},${restaurant.lon}` : originAddr;
 
   const destination = formatOrderAddress(order);
   const lat = order.deliveryLat != null ? Number(order.deliveryLat) : null;
@@ -105,7 +159,7 @@ async function getDriveTimeForOrder(order) {
     if (!route) return { error: 'Fahrzeit konnte nicht berechnet werden' };
 
     const maxMinutes = await getMaxDeliveryMinutes();
-    const mapsUrl = googleMaps.mapsDirectionsUrl(origin, destination);
+    const mapsUrl = googleMaps.mapsDirectionsUrl(originAddr, destination);
 
     const result = {
       minutes: route.minutes,
@@ -115,7 +169,7 @@ async function getDriveTimeForOrder(order) {
       distanceText: route.distanceText,
       maxMinutes,
       tooFar: route.minutes > maxMinutes,
-      origin,
+      origin: originAddr,
       destination,
       mapsUrl,
       geocodedAs,
@@ -155,6 +209,8 @@ module.exports = {
   getDriveTimeTo,
   getDriveTimeForOrder,
   getRestaurantAddress,
+  getRestaurantCoords,
+  resolveRouteEndpoints,
   getMaxDeliveryMinutes,
   formatOrderAddress,
   geocodeZoneCenter,
