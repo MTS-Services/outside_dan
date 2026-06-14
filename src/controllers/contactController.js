@@ -1,8 +1,17 @@
 const contactService = require('../services/contactService');
+const config = require('../config');
+const recaptchaService = require('../services/recaptchaService');
 const { ApiError } = require('../middlewares/error');
 
+async function getConfig(req, res) {
+  res.json({
+    enabled: recaptchaService.isEnabled(),
+    siteKey: config.recaptcha.siteKey || '',
+  });
+}
+
 async function submit(req, res) {
-  const msg = await contactService.submit(req.body);
+  const msg = await contactService.submit(req.body, req.ip);
   res.status(201).json({ ok: true, id: msg.id });
 }
 
@@ -29,4 +38,4 @@ async function remove(req, res) {
   res.json({ ok: true });
 }
 
-module.exports = { submit, list, getOne, markRead, remove };
+module.exports = { getConfig, submit, list, getOne, markRead, remove };

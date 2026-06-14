@@ -196,6 +196,7 @@ const contactSubmit = Joi.object({
   phone: Joi.string().max(40).allow('', null),
   subject: Joi.string().max(120).allow('', null),
   message: Joi.string().min(5).max(5000).required(),
+  recaptchaToken: Joi.string().allow('', null),
 });
 
 const contactRead = Joi.object({

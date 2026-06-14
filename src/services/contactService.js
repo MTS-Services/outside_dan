@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const config = require('../config');
 const emailService = require('./emailService');
+const recaptchaService = require('./recaptchaService');
 
 async function getAdminEmails() {
   const admins = await prisma.user.findMany({
@@ -12,7 +13,9 @@ async function getAdminEmails() {
   return [config.smtp.from].filter(Boolean);
 }
 
-async function submit({ name, email, phone, subject, message }) {
+async function submit({ name, email, phone, subject, message, recaptchaToken }, remoteIp) {
+  await recaptchaService.verify(recaptchaToken, remoteIp);
+
   const msg = await prisma.contactMessage.create({
     data: {
       name: name.trim(),

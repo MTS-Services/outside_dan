@@ -4,6 +4,7 @@ const { authRequired, requireAdmin } = require('../middlewares/auth');
 const { validateBody } = require('../middlewares/validate');
 const schemas = require('../utils/schemas');
 
+router.get('/config', ctrl.getConfig);
 router.post('/', validateBody(schemas.contactSubmit), ctrl.submit);
 
 router.use(authRequired, requireAdmin);

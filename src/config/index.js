@@ -45,4 +45,8 @@ module.exports = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'no-reply@example.com',
   },
+  recaptcha: {
+    siteKey: process.env.RECAPTCHA_SITE_KEY || '',
+    secretKey: process.env.RECAPTCHA_SECRET_KEY || '',
+  },
 };
