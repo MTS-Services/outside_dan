@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import Icon from '../components/Icon';
+import RecaptchaWidget from '../components/RecaptchaWidget';
 import api from '../api/client';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -23,6 +24,8 @@ export default function Contact() {
   const [sending, setSending] = useState(false);
   const [contactHero, setContactHero] = useState(null);
   const [siteSettings, setSiteSettings] = useState({});
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
+  const recaptchaRef = useRef(null);
   const main = useRef(null);
 
   useEffect(() => {
@@ -30,20 +33,30 @@ export default function Contact() {
       if (r.data?.url) setContactHero(r.data.url.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${r.data.url}` : r.data.url);
     }).catch(() => {});
     api.get('/site-settings').then((r) => setSiteSettings(r.data || {})).catch(() => {});
+    api.get('/contact/config').then((r) => {
+      if (r.data?.enabled && r.data?.siteKey) setRecaptchaSiteKey(r.data.siteKey);
+    }).catch(() => {});
   }, []);
 
   const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   function onSubmit(e) {
     e.preventDefault();
+    const recaptchaToken = recaptchaSiteKey ? recaptchaRef.current?.getToken() : '';
+    if (recaptchaSiteKey && !recaptchaToken) {
+      toast.error('Bitte bestätige, dass du kein Roboter bist.');
+      return;
+    }
     setSending(true);
-    api.post('/contact', form)
+    api.post('/contact', { ...form, recaptchaToken })
       .then(() => {
         toast.success('Nachricht gesendet! Wir melden uns in Kürze.');
         setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+        recaptchaRef.current?.reset();
       })
       .catch((err) => {
         toast.error(err.displayMessage || 'Senden fehlgeschlagen. Bitte erneut versuchen.');
+        recaptchaRef.current?.reset();
       })
       .finally(() => setSending(false));
   }
@@ -174,6 +187,9 @@ export default function Contact() {
                 placeholder="Deine Nachricht an uns …"
               />
             </label>
+            {recaptchaSiteKey && (
+              <RecaptchaWidget ref={recaptchaRef} siteKey={recaptchaSiteKey} />
+            )}
             <button disabled={sending} className="btn-primary w-full py-3 text-base">
               {sending ? 'Senden…' : (<>Nachricht senden <Icon name="arrowRight" className="w-4 h-4" /></>)}
             </button>
