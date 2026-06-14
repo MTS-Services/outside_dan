@@ -344,10 +344,11 @@
   @apply list-decimal;
 }
 
-/* Google Maps on checkout */
+/* Google Maps on checkout — block page scroll while zooming/panning */
 .delivery-map {
   width: 100%;
   min-height: 18rem;
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 640px) {

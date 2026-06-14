@@ -17,12 +17,12 @@ export default function ForgotPassword() {
   });
 
   useEffect(() => {
-    let interval;
-    if (timer > 0) {
-      interval = setInterval(() => setTimer(t => t - 1), 1000);
-    }
+    if (timer <= 0) return undefined;
+    const interval = setInterval(() => {
+      setTimer((t) => (t <= 1 ? 0 : t - 1));
+    }, 1000);
     return () => clearInterval(interval);
-  }, [timer]);
+  }, [timer > 0]);
 
   async function onRequestCode(e) {
     e?.preventDefault();
@@ -122,9 +122,17 @@ export default function ForgotPassword() {
               type="button"
               disabled={timer > 0 || busy}
               onClick={onRequestCode}
-              className="text-white/60 text-sm hover:text-white transition-colors w-full mt-2"
+              className="text-white/60 text-sm hover:text-white transition-colors w-full mt-2 min-h-[20px] tabular-nums"
             >
-              {timer > 0 ? `Code erneut senden in ${timer}s` : 'Kein Code erhalten? Erneut senden'}
+              {timer > 0 ? (
+                <>
+                  Code erneut senden in{' '}
+                  <span className="inline-block w-6 text-center">{timer}</span>
+                  s
+                </>
+              ) : (
+                'Kein Code erhalten? Erneut senden'
+              )}
             </button>
           </form>
         )}

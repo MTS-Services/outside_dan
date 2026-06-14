@@ -74,6 +74,8 @@ export default function DeliveryMapPicker({
   const onHouseNumberChangeRef = useRef(onHouseNumberChange);
   const onPinSetRef = useRef(onPinSet);
   const onRouteCheckRef = useRef(onRouteCheck);
+  const houseNumberRef = useRef('');
+  const streetNameRef = useRef('');
   const reverseAtRef = useRef(null);
   const placePinAtRef = useRef(null);
   const applyPlaceResultRef = useRef(null);
@@ -140,8 +142,10 @@ export default function DeliveryMapPicker({
     const activeZone = zoneRef.current;
     if (activeZone?.postalCode && parsed.postalCode && parsed.postalCode !== activeZone.postalCode) {
       setMapError(`Diese Adresse liegt in PLZ ${parsed.postalCode}, nicht in ${activeZone.postalCode}. Bitte innerhalb deiner Lieferzone wählen.`);
-      setStreetName('');
-      onStreetNameChangeRef.current('');
+          setStreetName('');
+          streetNameRef.current = '';
+          houseNumberRef.current = '';
+          onStreetNameChangeRef.current('');
       onPinSetRef.current(null);
       setPinCoords(null);
       clearRoute();
@@ -153,9 +157,11 @@ export default function DeliveryMapPicker({
     }
     setMapError('');
     setStreetName(parsed.streetName);
-    setLocationBlocked(false);
-    onStreetNameChangeRef.current(parsed.streetName);
-    if (parsed.houseNumber) onHouseNumberChangeRef.current(parsed.houseNumber);
+    streetNameRef.current = parsed.streetName;
+    if (parsed.houseNumber) {
+      houseNumberRef.current = parsed.houseNumber;
+      onHouseNumberChangeRef.current(parsed.houseNumber);
+    }
     onPinSetRef.current({ lat, lon: lng, postalCode: parsed.postalCode });
     setPinAndClearRoute(lat, lng);
     placePinAtRef.current?.(lat, lng, { pan: true, skipReverse: true });
@@ -181,10 +187,14 @@ export default function DeliveryMapPicker({
         return;
       }
       setStreetName(data.streetName || '');
+      streetNameRef.current = data.streetName || '';
       setAddressQuery([data.streetName, data.houseNumber].filter(Boolean).join(' '));
       setLocationBlocked(false);
       onStreetNameChangeRef.current(data.streetName || '');
-      if (data.houseNumber) onHouseNumberChangeRef.current(data.houseNumber);
+      if (data.houseNumber) {
+        houseNumberRef.current = data.houseNumber;
+        onHouseNumberChangeRef.current(data.houseNumber);
+      }
       onPinSetRef.current({ lat, lon: lng, postalCode: data.postalCode });
       setPinAndClearRoute(lat, lng);
     } catch (err) {
@@ -318,7 +328,14 @@ export default function DeliveryMapPicker({
 
     try {
       const { data } = await api.get('/geocode/drive-route', {
-        params: { lat: pinCoords.lat, lon: pinCoords.lon },
+        params: {
+          lat: pinCoords.lat,
+          lon: pinCoords.lon,
+          street: streetNameRef.current || streetName,
+          houseNumber: houseNumberRef.current,
+          postalCode: zone?.postalCode,
+          label: zone?.label,
+        },
         timeout: 20000,
       });
 
@@ -328,6 +345,10 @@ export default function DeliveryMapPicker({
       restaurantMarkerRef.current = null;
 
       const endPos = data.end || pinCoords;
+      if (data.end) {
+        setPinCoords({ lat: data.end.lat, lon: data.end.lng });
+        onPinSetRef.current?.({ lat: data.end.lat, lon: data.end.lng, postalCode: zone?.postalCode });
+      }
 
       if (data.polyline && maps.geometry?.encoding) {
         routePolylineRef.current = new maps.Polyline({
@@ -395,7 +416,7 @@ export default function DeliveryMapPicker({
     } finally {
       setRouting(false);
     }
-  }, [pinCoords, maxDeliveryMinutes]);
+  }, [pinCoords, maxDeliveryMinutes, streetName, zone]);
 
   const requestUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -459,6 +480,8 @@ export default function DeliveryMapPicker({
           setMapError('');
           setLocationBlocked(false);
           setStreetName('');
+          streetNameRef.current = '';
+          houseNumberRef.current = '';
           setAddressQuery('');
           setSuggestions([]);
           onStreetNameChangeRef.current('');
@@ -681,11 +704,12 @@ export default function DeliveryMapPicker({
         </button>
       )}
 
-      <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800">
+      <div className="relative rounded-xl overflow-hidden border border-white/10 bg-ink-800" data-lenis-prevent>
         <div
           ref={mapRef}
           className="delivery-map h-72 sm:h-96 md:h-[28rem] w-full"
-          style={{ minHeight: '18rem' }}
+          style={{ minHeight: '18rem', touchAction: 'none' }}
+          data-lenis-prevent
         />
         {inputMode === 'map' && (
           <button
@@ -723,7 +747,7 @@ export default function DeliveryMapPicker({
           {routeInfo.tooFar ? (
             <p>Diese Adresse liegt außerhalb unseres Liefergebiets (max. {routeInfo.maxMinutes ?? maxDeliveryMinutes} Min.). Bitte eine nähere Adresse wählen.</p>
           ) : (
-            <p>Fahrzeit vom Restaurant zu deiner Adresse (Google Maps).</p>
+            <p>Fahrzeit vom Restaurant zu deiner Adresse (Google Maps, mit aktuellem Verkehr).</p>
           )}
           <button
             type="button"
