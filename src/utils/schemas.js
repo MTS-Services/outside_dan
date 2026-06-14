@@ -203,6 +203,11 @@ const contactRead = Joi.object({
   isRead: Joi.boolean(),
 });
 
+const contactReply = Joi.object({
+  subject: Joi.string().min(2).max(200).required(),
+  message: Joi.string().min(5).max(5000).required(),
+});
+
 const verifyEmail = Joi.object({
   email: Joi.string().email({ tlds: { allow: false } }).required(),
   code: Joi.string().length(6).required(),
@@ -222,5 +227,5 @@ module.exports = {
   paypalConfig,
   forgotPassword, resetPassword,
   deliveryZone, coupon, legalPage, ordersAccepted,
-  contactSubmit, contactRead, verifyEmail, resendVerification,
+  contactSubmit, contactRead, contactReply, verifyEmail, resendVerification,
 };

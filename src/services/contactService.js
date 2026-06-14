@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const config = require('../config');
 const emailService = require('./emailService');
 const recaptchaService = require('./recaptchaService');
+const { ApiError } = require('../middlewares/error');
 
 async function getAdminEmails() {
   const admins = await prisma.user.findMany({
@@ -66,4 +67,25 @@ async function remove(id) {
   return { ok: true };
 }
 
-module.exports = { submit, list, getById, markRead, remove };
+async function reply(id, { subject, message }) {
+  const msg = await prisma.contactMessage.findUnique({ where: { id } });
+  if (!msg) throw new ApiError(404, 'Nachricht nicht gefunden');
+
+  const replySubject = subject.trim();
+  const replyMessage = message.trim();
+
+  await emailService.sendContactReply({
+    to: msg.email,
+    name: msg.name,
+    subject: replySubject,
+    message: replyMessage,
+    originalSubject: msg.subject,
+    originalMessage: msg.message,
+  });
+
+  await prisma.contactMessage.update({ where: { id }, data: { isRead: true } });
+
+  return { ok: true, from: config.smtp.from };
+}
+
+module.exports = { submit, list, getById, markRead, remove, reply };

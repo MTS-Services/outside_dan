@@ -39,4 +39,9 @@ async function remove(req, res) {
   res.json({ ok: true });
 }
 
-module.exports = { getConfig, submit, list, getOne, markRead, remove };
+async function reply(req, res) {
+  const result = await contactService.reply(req.params.id, req.body);
+  res.json(result);
+}
+
+module.exports = { getConfig, submit, list, getOne, markRead, remove, reply };

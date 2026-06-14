@@ -11,6 +11,7 @@ router.use(authRequired, requireAdmin);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 router.patch('/:id/read', validateBody(schemas.contactRead), ctrl.markRead);
+router.post('/:id/reply', validateBody(schemas.contactReply), ctrl.reply);
 router.delete('/:id', ctrl.remove);
 
 module.exports = router;

@@ -70,6 +70,14 @@ async function send({ to, subject, html, text }) {
 
 function fmt(n) { return Number(n).toFixed(2); }
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function resolveLogoPath() {
   return [
     path.join(__dirname, '../../public/logo.png'),
@@ -310,4 +318,38 @@ async function sendContactToAdmin(msg, adminEmails) {
   });
 }
 
-module.exports = { send, sendOrderAccepted, sendOrderDeclined, sendNewOrderToAdmin, sendTestEmailToAdmin, sendContactToAdmin, isConfigured };
+async function contactReplyHTML({ name, message, originalSubject, originalMessage }) {
+  const settings = await loadSettings();
+  const hasLogo = Boolean(resolveLogoPath());
+  const originalBlock = originalMessage
+    ? `<div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+        <p style="color:rgba(255,255,255,0.45);font-size:12px;margin:0 0 8px;">Ihre ursprüngliche Nachricht${originalSubject ? ` (${escapeHtml(originalSubject)})` : ''}:</p>
+        <p style="color:rgba(255,255,255,0.6);font-size:13px;white-space:pre-wrap;margin:0;">${escapeHtml(originalMessage)}</p>
+      </div>`
+    : '';
+  return shellHTML({
+    title: 'Antwort von Tarantella',
+    preheader: 'Antwort auf Ihre Kontaktanfrage',
+    content: `
+      <h1 style="font-family:'Bebas Neue',Impact,sans-serif;font-size:32px;letter-spacing:2px;margin:0 0 12px;color:#D9AF47;">ANTWORT VON TARANTELLA</h1>
+      <p style="color:rgba(255,255,255,0.8);margin:0 0 14px;">Hallo ${escapeHtml(name)},</p>
+      <div style="padding:14px 16px;background:rgba(255,255,255,0.04);border-radius:10px;font-size:15px;color:rgba(255,255,255,0.9);white-space:pre-wrap;line-height:1.6;">${escapeHtml(message)}</div>
+      ${originalBlock}
+      <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:20px;">Bei weiteren Fragen antworten Sie einfach auf diese E-Mail.</p>`,
+    settings,
+    hasLogo,
+  });
+}
+
+async function sendContactReply({ to, name, subject, message, originalSubject, originalMessage }) {
+  const html = await contactReplyHTML({ name, message, originalSubject, originalMessage });
+  const result = await send({ to, subject, html });
+  if (result.error) throw new Error(result.error);
+  if (result.skipped) throw new Error('E-Mail ist nicht konfiguriert (SMTP fehlt)');
+  return result;
+}
+
+module.exports = {
+  send, sendOrderAccepted, sendOrderDeclined, sendNewOrderToAdmin, sendTestEmailToAdmin,
+  sendContactToAdmin, sendContactReply, isConfigured,
+};
