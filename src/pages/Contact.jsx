@@ -25,6 +25,7 @@ export default function Contact() {
   const [contactHero, setContactHero] = useState(null);
   const [siteSettings, setSiteSettings] = useState({});
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
+  const [recaptchaVersion, setRecaptchaVersion] = useState('v2');
   const recaptchaRef = useRef(null);
   const main = useRef(null);
 
@@ -34,19 +35,36 @@ export default function Contact() {
     }).catch(() => {});
     api.get('/site-settings').then((r) => setSiteSettings(r.data || {})).catch(() => {});
     api.get('/contact/config').then((r) => {
-      if (r.data?.enabled && r.data?.siteKey) setRecaptchaSiteKey(r.data.siteKey);
+      if (r.data?.enabled && r.data?.siteKey) {
+        setRecaptchaSiteKey(r.data.siteKey);
+        setRecaptchaVersion(r.data.version === 'v3' ? 'v3' : 'v2');
+      }
     }).catch(() => {});
   }, []);
 
   const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
-    const recaptchaToken = recaptchaSiteKey ? recaptchaRef.current?.getToken() : '';
-    if (recaptchaSiteKey && !recaptchaToken) {
-      toast.error('Bitte bestätige, dass du kein Roboter bist.');
-      return;
+
+    let recaptchaToken = '';
+    if (recaptchaSiteKey) {
+      try {
+        recaptchaToken = await recaptchaRef.current?.execute?.() || recaptchaRef.current?.getToken?.() || '';
+      } catch {
+        toast.error('Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden.');
+        return;
+      }
+      if (!recaptchaToken) {
+        toast.error(
+          recaptchaVersion === 'v3'
+            ? 'Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.'
+            : 'Bitte bestätige, dass du kein Roboter bist (Kontrollkästchen anklicken).',
+        );
+        return;
+      }
     }
+
     setSending(true);
     api.post('/contact', { ...form, recaptchaToken })
       .then(() => {
@@ -188,7 +206,7 @@ export default function Contact() {
               />
             </label>
             {recaptchaSiteKey && (
-              <RecaptchaWidget ref={recaptchaRef} siteKey={recaptchaSiteKey} />
+              <RecaptchaWidget ref={recaptchaRef} siteKey={recaptchaSiteKey} version={recaptchaVersion} />
             )}
             <button disabled={sending} className="btn-primary w-full py-3 text-base">
               {sending ? 'Senden…' : (<>Nachricht senden <Icon name="arrowRight" className="w-4 h-4" /></>)}
