@@ -7,6 +7,7 @@ async function getConfig(req, res) {
   res.json({
     enabled: recaptchaService.isEnabled(),
     siteKey: config.recaptcha.siteKey || '',
+    version: config.recaptcha.version === 'v3' ? 'v3' : 'v2',
   });
 }
 

@@ -48,5 +48,6 @@ module.exports = {
   recaptcha: {
     siteKey: process.env.RECAPTCHA_SITE_KEY || '',
     secretKey: process.env.RECAPTCHA_SECRET_KEY || '',
+    version: (process.env.RECAPTCHA_VERSION || 'v2').toLowerCase(),
   },
 };
