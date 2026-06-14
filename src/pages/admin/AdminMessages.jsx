@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
 
@@ -8,9 +9,102 @@ function fmtDate(d) {
   });
 }
 
+function replySubject(original) {
+  const s = (original || 'Ihre Nachricht an Tarantella').trim();
+  return s.toLowerCase().startsWith('re:') ? s : `Re: ${s}`;
+}
+
+function ReplyModal({ message, onClose, onSent }) {
+  const [form, setForm] = useState({
+    subject: replySubject(message?.subject),
+    message: '',
+  });
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (message) {
+      setForm({ subject: replySubject(message.subject), message: '' });
+    }
+  }, [message]);
+
+  if (!message) return null;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await api.post(`/contact/${message.id}/reply`, form);
+      toast.success(`E-Mail an ${message.email} gesendet`);
+      onSent();
+      onClose();
+    } catch (err) {
+      toast.error(err.displayMessage || 'E-Mail konnte nicht gesendet werden');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        <header className="flex items-center justify-between p-5 border-b border-white/5 shrink-0">
+          <h3 className="font-display text-xl text-white">Antwort per E-Mail</h3>
+          <button type="button" onClick={onClose} className="text-white/40 hover:text-white text-2xl leading-none p-1">&times;</button>
+        </header>
+
+        <form onSubmit={onSubmit} className="p-5 space-y-4 overflow-y-auto">
+          <label className="block">
+            <span className="label">An</span>
+            <input className="input w-full opacity-70" value={`${message.name} <${message.email}>`} readOnly />
+          </label>
+          <p className="text-xs text-white/40 -mt-2">Wird über die Restaurant-E-Mail (SMTP) gesendet</p>
+
+          <label className="block">
+            <span className="label">Betreff *</span>
+            <input
+              className="input w-full"
+              required
+              value={form.subject}
+              onChange={(e) => setForm({ ...form, subject: e.target.value })}
+            />
+          </label>
+
+          <label className="block">
+            <span className="label">Nachricht *</span>
+            <textarea
+              className="input w-full min-h-[160px]"
+              required
+              rows={8}
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              placeholder="Ihre Antwort an den Kunden …"
+            />
+          </label>
+
+          <div className="rounded-lg bg-white/5 p-3 text-xs text-white/45">
+            <div className="text-white/60 mb-1">Ursprüngliche Nachricht:</div>
+            <div className="whitespace-pre-wrap">{message.message}</div>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <button type="button" onClick={onClose} className="btn-ghost" disabled={sending}>
+              Abbrechen
+            </button>
+            <button type="submit" className="btn-primary" disabled={sending}>
+              {sending ? 'Wird gesendet…' : 'E-Mail senden'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function AdminMessages() {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [replyOpen, setReplyOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -45,7 +139,7 @@ export default function AdminMessages() {
       await api.patch(`/contact/${id}/read`, { isRead });
       setItems((prev) => prev.map((m) => (m.id === id ? { ...m, isRead } : m)));
       if (selected?.id === id) setSelected((s) => ({ ...s, isRead }));
-      setUnreadCount((c) => isRead ? Math.max(0, c - 1) : c + 1);
+      setUnreadCount((c) => (isRead ? Math.max(0, c - 1) : c + 1));
     } catch {
       toast.error('Status konnte nicht aktualisiert werden');
     }
@@ -81,7 +175,14 @@ export default function AdminMessages() {
             {unreadCount > 0 ? `${unreadCount} ungelesen` : 'Alle Nachrichten gelesen'}
           </p>
         </div>
-        <button type="button" onClick={load} className="btn-outline text-sm py-2 px-4">Aktualisieren</button>
+        <button
+          type="button"
+          onClick={load}
+          className="btn-outline text-sm py-2 px-4"
+          title="Nachrichtenliste neu laden"
+        >
+          Neu laden
+        </button>
       </div>
 
       <div className="flex-1 grid lg:grid-cols-[340px_1fr] gap-4 min-h-0">
@@ -149,7 +250,7 @@ export default function AdminMessages() {
               <div className="grid sm:grid-cols-2 gap-3 text-sm">
                 <div className="p-3 rounded-lg bg-white/5">
                   <div className="text-white/40 text-xs mb-1">E-Mail</div>
-                  <a href={`mailto:${selected.email}`} className="text-brand-400 hover:underline">{selected.email}</a>
+                  <span className="text-brand-400">{selected.email}</span>
                 </div>
                 <div className="p-3 rounded-lg bg-white/5">
                   <div className="text-white/40 text-xs mb-1">Telefon</div>
@@ -168,16 +269,28 @@ export default function AdminMessages() {
                 </div>
               </div>
 
-              <a
-                href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject || 'Ihre Nachricht an Tarantella')}`}
+              <button
+                type="button"
+                onClick={() => setReplyOpen(true)}
                 className="btn-primary inline-flex text-sm py-2 px-4"
               >
                 Antworten per E-Mail
-              </a>
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      {replyOpen && selected && (
+        <ReplyModal
+          message={selected}
+          onClose={() => setReplyOpen(false)}
+          onSent={() => {
+            setSelected((s) => (s ? { ...s, isRead: true } : s));
+            setItems((prev) => prev.map((m) => (m.id === selected.id ? { ...m, isRead: true } : m)));
+          }}
+        />
+      )}
     </div>
   );
 }

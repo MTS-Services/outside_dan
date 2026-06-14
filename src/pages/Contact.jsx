@@ -70,11 +70,11 @@ export default function Contact() {
       .then(() => {
         toast.success('Nachricht gesendet! Wir melden uns in Kürze.');
         setForm({ name: '', email: '', phone: '', subject: '', message: '' });
-        recaptchaRef.current?.reset();
+        try { recaptchaRef.current?.reset(); } catch { /* ignore */ }
       })
       .catch((err) => {
         toast.error(err.displayMessage || 'Senden fehlgeschlagen. Bitte erneut versuchen.');
-        recaptchaRef.current?.reset();
+        try { recaptchaRef.current?.reset(); } catch { /* ignore */ }
       })
       .finally(() => setSending(false));
   }

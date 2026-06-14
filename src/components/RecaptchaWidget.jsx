@@ -51,13 +51,16 @@ const RecaptchaWidget = forwardRef(function RecaptchaWidget({ siteKey, version =
       if (version === 'v3') {
         return window.grecaptcha.execute(siteKey, { action: 'contact' });
       }
-      return this.getToken();
+      if (widgetIdRef.current == null) return '';
+      return window.grecaptcha.getResponse(widgetIdRef.current) || '';
     },
     reset() {
       if (version === 'v3') return;
-      if (widgetIdRef.current != null && window.grecaptcha) {
-        window.grecaptcha.reset(widgetIdRef.current);
-      }
+      try {
+        if (widgetIdRef.current != null && window.grecaptcha) {
+          window.grecaptcha.reset(widgetIdRef.current);
+        }
+      } catch { /* ignore */ }
     },
   }));
 
