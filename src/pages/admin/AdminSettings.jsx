@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
+import { useAuth } from '../../store/auth';
 import { useSiteSettings } from '../../store/siteSettings';
 import OrdersAcceptedToggle from '../../components/OrdersAcceptedToggle';
 
@@ -30,6 +32,9 @@ const DEFAULT = {
 const BOOL_KEYS = ['orders_accepted', 'news_banner_enabled'];
 
 export default function AdminSettings() {
+  const user = useAuth((s) => s.user);
+  const isAdmin = user?.role === 'ADMIN';
+  const isStaff = user?.role === 'SUBADMIN' || user?.role === 'STAFF';
   const loadSiteSettings = useSiteSettings((s) => s.load);
   const [form, setForm] = useState(DEFAULT);
   const [hours, setHours] = useState(DEFAULT_HOURS);
@@ -37,6 +42,7 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!isAdmin) return undefined;
     api.get('/site-settings').then((r) => {
       const data = r.data || {};
       setForm((f) => ({
@@ -63,7 +69,21 @@ export default function AdminSettings() {
         } catch { /* keep default */ }
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [isAdmin]);
+
+  if (!isAdmin && isStaff) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
+        <h1 className="font-display text-2xl sm:text-3xl mb-2">Einstellungen</h1>
+        <p className="text-sm text-white/50 mb-6">Online-Bestellungen für Kunden ein- oder ausschalten.</p>
+        <OrdersAcceptedToggle />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
