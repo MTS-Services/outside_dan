@@ -788,20 +788,109 @@ async function listDiscountsFromR2o() {
 // deleted in ready2order), the order is booked onto a POS table. Staff see it
 // on the table in the register, can edit or remove items, and check it out
 // there — exactly like an in-house order.
+// Online orders are auto-assigned to the Delivery area tables (Delivery 1–9).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Fetch all tables from ready2order (for the admin table picker). */
+function normalizeR2oList(data) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const nested = data.tables || data.tableAreas || data.items || data.data;
+    if (Array.isArray(nested)) return nested;
+  }
+  return [];
+}
+
+function isDeliveryLabel(name = '') {
+  const n = String(name).trim().toLowerCase();
+  return n.startsWith('deliv') || n === 'delivery' || n.includes('liefer');
+}
+
+function deliveryTableSortKey(table) {
+  const name = String(table.table_name || '');
+  const num = name.match(/(\d+)\s*$/);
+  return num ? parseInt(num[1], 10) : Number(table.table_order || 0);
+}
+
+/** Fetch table areas from ready2order. */
+async function listTableAreas() {
+  if (!isConfigured()) return [];
+  const { data } = await client.get('/tableAreas', { params: { limit: 100 } });
+  return normalizeR2oList(data);
+}
+
+/** Fetch all tables from ready2order. */
 async function listTables() {
   if (!isConfigured()) return [];
   const { data } = await client.get('/tables', { params: { limit: 250 } });
-  return Array.isArray(data) ? data : [];
+  return normalizeR2oList(data);
+}
+
+/**
+ * Return only Delivery-area tables (e.g. Delivery 1 … Delivery 9).
+ * Matches by tableArea name/shortName, or table name starting with "Delivery".
+ */
+async function listDeliveryTables() {
+  const [areas, tables] = await Promise.all([listTableAreas(), listTables()]);
+  const deliveryAreaIds = new Set(
+    areas
+      .filter((a) => isDeliveryLabel(a.tableArea_name) || isDeliveryLabel(a.tableArea_shortName))
+      .map((a) => a.tableArea_id),
+  );
+
+  const deliveryTables = tables.filter((t) => {
+    if (deliveryAreaIds.size && deliveryAreaIds.has(t.tableArea_id)) return true;
+    return isDeliveryLabel(t.table_name);
+  });
+
+  return deliveryTables.sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
+}
+
+/** True when the table still has open (uninvoiced) orders on it. */
+async function tableHasOpenOrders(tableId) {
+  try {
+    const { data } = await client.get('/orders', {
+      params: { table_id: Number(tableId), limit: 1 },
+    });
+    const rows = normalizeR2oList(data);
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pick the next free Delivery table (Delivery 1, then 2, …).
+ * If all are occupied, falls back to the first delivery table.
+ */
+async function pickDeliveryTable() {
+  const deliveryTables = await listDeliveryTables();
+  if (!deliveryTables.length) {
+    throw new Error('Keine Delivery-Tische in ready2order gefunden — bitte Delivery-Bereich im POS anlegen');
+  }
+
+  for (const table of deliveryTables) {
+    const occupied = await tableHasOpenOrders(table.table_id);
+    if (!occupied) {
+      return {
+        tableId: table.table_id,
+        tableName: table.table_name,
+      };
+    }
+  }
+
+  const fallback = deliveryTables[0];
+  console.warn(`[r2o] All delivery tables occupied — using ${fallback.table_name}`);
+  return {
+    tableId: fallback.table_id,
+    tableName: fallback.table_name,
+  };
 }
 
 /**
  * Book an order onto a POS table via POST /orders.
  * Returns `{ invoiceId: null, receiptNo: null, tableOrder: true }` or throws.
  */
-async function createTableOrderForOrder(order, tableId) {
+async function createTableOrderForOrder(order, tableId, tableName = '') {
   const [vatId, zeroVatId] = await Promise.all([
     resolveDefaultVatId(),
     resolveZeroVatId(),
@@ -823,8 +912,8 @@ async function createTableOrderForOrder(order, tableId) {
 
   try {
     const { data } = await client.post('/orders', payload);
-    console.log(`[r2o] Order ${order.orderNumber} booked on table ${tableId}`);
-    return { invoiceId: null, receiptNo: null, tableOrder: true, raw: data };
+    console.log(`[r2o] Order ${order.orderNumber} booked on table ${tableId}${tableName ? ` (${tableName})` : ''}`);
+    return { invoiceId: null, receiptNo: null, tableOrder: true, tableId, tableName, raw: data };
   } catch (err) {
     console.error('[r2o] table order creation failed:', {
       status: err.response?.status,
@@ -837,24 +926,18 @@ async function createTableOrderForOrder(order, tableId) {
 
 /**
  * Sync an accepted order to ready2order using the configured mode:
- *   - r2o_sales_mode = 'table'   → book onto the configured POS table
+ *   - r2o_sales_mode = 'table'   → auto-book onto next free Delivery table
  *   - r2o_sales_mode = 'invoice' → create a finalized invoice (legacy default)
  */
 async function syncOrderToR2o(order) {
   if (!isConfigured()) {
     return { invoiceId: null, receiptNo: null, skipped: true };
   }
-  const [mode, tableId] = await Promise.all([
-    siteSettings.getSetting('r2o_sales_mode', 'invoice'),
-    siteSettings.getSetting('r2o_table_id', ''),
-  ]);
+  const mode = await siteSettings.getSetting('r2o_sales_mode', 'invoice');
   if (mode === 'table') {
-    if (!tableId) {
-      throw new Error('r2o Tisch-Modus aktiv, aber kein Tisch konfiguriert');
-    }
-    // No invoice fallback here on purpose — a finalized invoice cannot be
-    // deleted in the POS, which is exactly what table mode is meant to avoid.
-    return createTableOrderForOrder(order, tableId);
+    const { tableId, tableName } = await pickDeliveryTable();
+    const result = await createTableOrderForOrder(order, tableId, tableName);
+    return { ...result, tableId, tableName };
   }
   return createInvoiceForOrder(order);
 }
@@ -910,6 +993,8 @@ module.exports = {
   createTableOrderForOrder,
   syncOrderToR2o,
   listTables,
+  listDeliveryTables,
+  pickDeliveryTable,
   isConfigured,
   clearR2oAccountCaches,
   createCouponInR2o,

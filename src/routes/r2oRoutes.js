@@ -23,33 +23,38 @@ router.get('/status', authRequired, requireAdmin, async (req, res) => {
 });
 
 // ─── GET /api/r2o/tables ──────────────────────────────────────────────────────
+// Returns only Delivery-area tables (Delivery 1, Delivery 2, …).
 router.get('/tables', authRequired, requireAdmin, async (req, res) => {
   if (!r2o.isConfigured()) {
     return res.status(503).json({ error: 'ready2order nicht verbunden' });
   }
   try {
-    return res.json(await r2o.listTables());
+    return res.json(await r2o.listDeliveryTables());
   } catch (err) {
     const detail = err.response?.data || err.message;
-    return res.status(502).json({ error: 'Tische konnten nicht geladen werden', detail });
+    return res.status(502).json({ error: 'Delivery-Tische konnten nicht geladen werden', detail });
   }
 });
 
 // ─── PUT /api/r2o/sales-mode ──────────────────────────────────────────────────
 router.put('/sales-mode', authRequired, requireAdmin, async (req, res) => {
-  const { salesMode, tableId, tableName } = req.body || {};
+  const { salesMode } = req.body || {};
   if (!['invoice', 'table'].includes(salesMode)) {
     return res.status(400).json({ error: 'Ungültiger Buchungsmodus' });
   }
-  if (salesMode === 'table' && !String(tableId || '').trim()) {
-    return res.status(400).json({ error: 'Bitte einen Tisch auswählen' });
-  }
   await siteSettings.upsertMany({
     r2o_sales_mode: salesMode,
-    r2o_table_id: String(tableId || '').trim(),
-    r2o_table_name: String(tableName || '').trim(),
+    // table mode auto-picks the next free Delivery table — no manual selection
+    ...(salesMode === 'invoice' ? { r2o_table_id: '', r2o_table_name: '' } : {}),
   });
-  res.json({ salesMode, tableId: String(tableId || '').trim(), tableName: String(tableName || '').trim() });
+  const deliveryTables = salesMode === 'table' ? await r2o.listDeliveryTables() : [];
+  res.json({
+    salesMode,
+    deliveryTables: deliveryTables.map((t) => ({
+      tableId: String(t.table_id),
+      tableName: String(t.table_name || ''),
+    })),
+  });
 });
 
 // ─── PUT /api/r2o/developer-token ───────────────────────────────────────────
