@@ -895,21 +895,40 @@ async function listDeliveryTables() {
   return tables;
 }
 
+/**
+ * Tables used for online-order booking only.
+ * Prefers Delivery 1–9; otherwise uses the Checkout table — never Bar/Inner/etc.
+ */
+async function listBookingTables() {
+  const deliveryTables = await listDeliveryTables();
+  if (deliveryTables.length) return deliveryTables;
+
+  const allTables = await listTables();
+  const checkout = allTables.find(
+    (t) => String(t.table_name || t.name || '').trim().toLowerCase() === 'checkout',
+  );
+  if (checkout) return [checkout];
+
+  return allTables.length ? [allTables[0]] : [];
+}
+
 /** All tables the ready2order API exposes (used when Delivery area is not in API). */
 async function listPosTablesWithMeta() {
-  const [areas, allTables] = await Promise.all([listTableAreas(), listTables()]);
-  const { tables: deliveryTables, meta: deliveryMeta } = await listDeliveryTablesWithMeta();
+  const allTables = await listTables();
+  const bookingTables = await listBookingTables();
+  const { meta: deliveryMeta } = await listDeliveryTablesWithMeta();
 
-  const sorted = [...allTables].sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
   const meta = {
-    ...deliveryMeta,
-    deliveryCount: deliveryTables.length,
-    usingFallback: deliveryTables.length === 0 && sorted.length > 0,
+    totalAreas: deliveryMeta.totalAreas,
+    totalTables: allTables.length,
+    areaNames: deliveryMeta.areaNames,
+    bookingTableNames: bookingTables.map((t) => String(t.table_name || t.name || '')),
+    usingCheckoutFallback: bookingTables.length === 1
+      && String(bookingTables[0]?.table_name || '').toLowerCase() === 'checkout',
   };
 
   return {
-    tables: sorted,
-    deliveryTables,
+    tables: bookingTables,
     meta,
   };
 }
@@ -933,30 +952,30 @@ async function tableHasOpenOrders(tableId) {
  * Booking on a table avoids a finalized invoice that cannot be deleted.
  */
 async function pickTableForOrder() {
-  const { tables: allTables, deliveryTables } = await listPosTablesWithMeta();
-  const candidates = deliveryTables.length ? deliveryTables : allTables;
+  const candidates = await listBookingTables();
 
   if (!candidates.length) {
     throw new Error('Keine Tische über die ready2order API verfügbar — bitte Verbindung prüfen');
   }
 
-  for (const table of candidates) {
+  const deliveryTables = candidates.filter((t) => isDeliveryTableName(t.table_name || t.name));
+  const pool = deliveryTables.length ? deliveryTables : candidates;
+
+  for (const table of pool) {
     const occupied = await tableHasOpenOrders(table.table_id);
     if (!occupied) {
       return {
         tableId: table.table_id,
         tableName: table.table_name || table.name,
-        usedFallback: !deliveryTables.length,
       };
     }
   }
 
-  const fallback = candidates[0];
-  console.warn(`[r2o] All candidate tables occupied — using ${fallback.table_name}`);
+  const fallback = pool[0];
+  console.warn(`[r2o] All booking tables occupied — using ${fallback.table_name}`);
   return {
     tableId: fallback.table_id,
     tableName: fallback.table_name || fallback.name,
-    usedFallback: !deliveryTables.length,
   };
 }
 
@@ -1070,6 +1089,7 @@ module.exports = {
   listDeliveryTables,
   listDeliveryTablesWithMeta,
   listPosTablesWithMeta,
+  listBookingTables,
   pickTableForOrder,
   isConfigured,
   clearR2oAccountCaches,
