@@ -49,7 +49,8 @@ export default function AdminR2O() {
     setTablesLoading(true);
     try {
       const { data } = await api.get('/r2o/tables');
-      setDeliveryTables(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : (data?.tables || []);
+      setDeliveryTables(rows);
     } catch {
       setDeliveryTables([]);
     } finally {
@@ -66,6 +67,11 @@ export default function AdminR2O() {
         setDeliveryTables(data.deliveryTables.map((t) => ({
           table_id: t.tableId,
           table_name: t.tableName,
+        })));
+      } else if (Array.isArray(data.tables)) {
+        setDeliveryTables(data.tables.map((t) => ({
+          table_id: t.table_id ?? t.tableId,
+          table_name: t.table_name ?? t.tableName,
         })));
       }
       toast.success(
