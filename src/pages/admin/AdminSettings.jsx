@@ -5,6 +5,7 @@ import api from '../../api/client';
 import { useAuth } from '../../store/auth';
 import { useSiteSettings } from '../../store/siteSettings';
 import OrdersAcceptedToggle from '../../components/OrdersAcceptedToggle';
+import DeliveryScheduleCard from '../../components/DeliveryScheduleCard';
 
 const DEFAULT_HOURS = [
   { day: 'Montag',     times: ['12:00 – 14:30', '17:00 – 22:00'], closed: false },
@@ -30,6 +31,8 @@ const DEFAULT = {
 };
 
 const BOOL_KEYS = ['orders_accepted', 'news_banner_enabled'];
+// Managed by dedicated cards/pages — never round-tripped through this form.
+const EXCLUDED_KEYS = ['opening_hours', 'delivery_schedule', 'delivery_schedule_enabled'];
 
 export default function AdminSettings() {
   const user = useAuth((s) => s.user);
@@ -49,7 +52,7 @@ export default function AdminSettings() {
         ...f,
         ...Object.fromEntries(
           Object.entries(data)
-            .filter(([k]) => k !== 'opening_hours' && !BOOL_KEYS.includes(k))
+            .filter(([k]) => !EXCLUDED_KEYS.includes(k) && !BOOL_KEYS.includes(k))
             .map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
         ),
         orders_accepted: data.orders_accepted !== false && data.orders_accepted !== 'false',
@@ -76,7 +79,10 @@ export default function AdminSettings() {
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <h1 className="font-display text-2xl sm:text-3xl mb-2">Einstellungen</h1>
         <p className="text-sm text-white/50 mb-6">Online-Bestellungen für Kunden ein- oder ausschalten.</p>
-        <OrdersAcceptedToggle />
+        <div className="space-y-6">
+          <OrdersAcceptedToggle />
+          <DeliveryScheduleCard />
+        </div>
       </div>
     );
   }
@@ -148,6 +154,9 @@ export default function AdminSettings() {
 
         {/* Orders */}
         <OrdersAcceptedToggle />
+
+        {/* Delivery time windows */}
+        <DeliveryScheduleCard />
 
         {/* News banner */}
         <div className="card p-6 space-y-4">

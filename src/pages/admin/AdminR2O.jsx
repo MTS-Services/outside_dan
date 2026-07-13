@@ -26,14 +26,62 @@ export default function AdminR2O() {
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
+  // Booking mode (invoice vs. table)
+  const [salesMode, setSalesMode] = useState('invoice');
+  const [tableId, setTableId] = useState('');
+  const [tables, setTables] = useState([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
+
   async function loadStatus() {
     try {
       const { data } = await api.get('/r2o/status');
       setStatus(data);
+      setSalesMode(data.salesMode === 'table' ? 'table' : 'invoice');
+      setTableId(data.tableId || '');
+      if (data.configured) loadTables();
     } catch (e) {
       toast.error(e.displayMessage || 'Status konnte nicht geladen werden');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadTables() {
+    setTablesLoading(true);
+    try {
+      const { data } = await api.get('/r2o/tables');
+      setTables(Array.isArray(data) ? data : []);
+    } catch {
+      setTables([]);
+    } finally {
+      setTablesLoading(false);
+    }
+  }
+
+  async function saveSalesMode() {
+    if (salesMode === 'table' && !tableId) {
+      toast.error('Bitte einen Tisch auswählen');
+      return;
+    }
+    setSavingMode(true);
+    try {
+      const selected = tables.find((t) => String(t.table_id) === String(tableId));
+      const { data } = await api.put('/r2o/sales-mode', {
+        salesMode,
+        tableId: salesMode === 'table' ? String(tableId) : '',
+        tableName: salesMode === 'table' ? String(selected?.table_name || '') : '',
+      });
+      setStatus((s) => ({ ...s, ...data }));
+      toast.success(
+        data.salesMode === 'table'
+          ? `Bestellungen werden auf Tisch „${data.tableName || data.tableId}“ gebucht`
+          : 'Bestellungen werden als Rechnung erstellt',
+      );
+    } catch (e) {
+      toast.error(e.displayMessage || 'Speichern fehlgeschlagen');
+    } finally {
+      setSavingMode(false);
     }
   }
 
@@ -225,6 +273,71 @@ export default function AdminR2O() {
           </div>
         )}
       </StepCard>
+
+      {status?.configured && (
+        <StepCard
+          step={3}
+          title="Buchungsmodus"
+          description="Wie akzeptierte Online-Bestellungen im POS erscheinen. Auf einem Tisch gebuchte Bestellungen können im POS bearbeitet oder gelöscht werden — eine fertige Rechnung nicht."
+        >
+          <div className="space-y-3">
+            <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition ${salesMode === 'table' ? 'border-[#D9AF47]/40 bg-[#D9AF47]/5' : 'border-white/10 hover:border-white/20'}`}>
+              <input
+                type="radio"
+                name="salesMode"
+                checked={salesMode === 'table'}
+                onChange={() => setSalesMode('table')}
+                className="mt-1 accent-[#D9AF47]"
+              />
+              <div className="flex-1">
+                <span className="font-semibold text-white block text-sm">Auf Tisch buchen (empfohlen)</span>
+                <span className="text-xs text-white/50 mt-0.5 block">
+                  Die Bestellung erscheint auf dem gewählten Tisch (z. B. „Delivery“). Das Personal kann sie dort prüfen, ändern, stornieren und abkassieren — wie eine normale Restaurant-Bestellung.
+                </span>
+                {salesMode === 'table' && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <select
+                      value={tableId}
+                      onChange={(e) => setTableId(e.target.value)}
+                      className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#D9AF47]/50"
+                    >
+                      <option value="">— Tisch wählen —</option>
+                      {tables.map((t) => (
+                        <option key={t.table_id} value={String(t.table_id)}>
+                          {t.table_name}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" onClick={loadTables} disabled={tablesLoading} className="btn-ghost text-xs">
+                      {tablesLoading ? 'Lade…' : 'Tische neu laden'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </label>
+
+            <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition ${salesMode === 'invoice' ? 'border-[#D9AF47]/40 bg-[#D9AF47]/5' : 'border-white/10 hover:border-white/20'}`}>
+              <input
+                type="radio"
+                name="salesMode"
+                checked={salesMode === 'invoice'}
+                onChange={() => setSalesMode('invoice')}
+                className="mt-1 accent-[#D9AF47]"
+              />
+              <div>
+                <span className="font-semibold text-white block text-sm">Sofort Rechnung erstellen</span>
+                <span className="text-xs text-white/50 mt-0.5 block">
+                  Beim Akzeptieren wird direkt ein Beleg erstellt. Achtung: Ein einmal erstellter Beleg kann in ready2order nicht mehr gelöscht werden.
+                </span>
+              </div>
+            </label>
+
+            <button type="button" onClick={saveSalesMode} disabled={savingMode} className="btn-primary text-sm">
+              {savingMode ? 'Speichere…' : 'Buchungsmodus speichern'}
+            </button>
+          </div>
+        </StepCard>
+      )}
     </div>
   );
 }

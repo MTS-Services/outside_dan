@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '../store/cart';
 import { useAuth } from '../store/auth';
-import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
+import { useOrderGuard } from '../store/siteSettings';
 import Icon from '../components/Icon';
 
 export default function Cart() {
   const { items, setQty, remove, subtotal } = useCart();
   const { token } = useAuth();
-  const { canOrder } = useOrderGuard();
+  const { canOrder, closedMessage } = useOrderGuard();
   const sub = subtotal();
   const fee = items.length ? 2.5 : 0;
   const total = sub + fee;
@@ -69,7 +69,7 @@ export default function Cart() {
             <div className="border-t border-white/10 my-3" />
             <Row label="Gesamt" value={`€ ${total.toFixed(2)}`} bold />
             {!canOrder && (
-              <p className="text-sm text-amber-400/90 mt-4">{ORDERS_CLOSED_MESSAGE}</p>
+              <p className="text-sm text-amber-400/90 mt-4">{closedMessage}</p>
             )}
             {canOrder ? (
               <Link to={checkoutTo} className="btn-primary w-full mt-6 justify-center">
@@ -78,7 +78,7 @@ export default function Cart() {
             ) : (
               <button
                 type="button"
-                onClick={() => toast.error(ORDERS_CLOSED_MESSAGE)}
+                onClick={() => toast.error(closedMessage)}
                 className="btn-primary w-full mt-6 justify-center opacity-50 cursor-not-allowed"
               >
                 Zur Kasse <Icon name="arrowRight" className="w-4 h-4" />

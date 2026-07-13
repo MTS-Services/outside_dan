@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { useCart, useCartUI } from '../store/cart';
 import { useAuth } from '../store/auth';
-import { ORDERS_CLOSED_MESSAGE, useOrderGuard } from '../store/siteSettings';
+import { useOrderGuard } from '../store/siteSettings';
 import Icon from './Icon';
 
 const imgSrc = (url) => url?.startsWith('/uploads/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${url}` : url;
@@ -16,7 +16,7 @@ export default function CartDrawer() {
   const modifyExtraQty = useCart((s) => s.modifyExtraQty);
   const remove = useCart((s) => s.remove);
   const subtotal = useCart((s) => s.subtotal());
-  const { canOrder } = useOrderGuard();
+  const { canOrder, closedMessage } = useOrderGuard();
   const { token } = useAuth();
   const checkoutTo = token ? '/checkout' : '/login?next=/checkout';
 
@@ -205,7 +205,7 @@ export default function CartDrawer() {
             </div>
             <p className="text-[11px] text-white/40">Versand & Steuern werden an der Kasse berechnet.</p>
             {!canOrder && (
-              <p className="text-xs text-amber-400/90">{ORDERS_CLOSED_MESSAGE}</p>
+              <p className="text-xs text-amber-400/90">{closedMessage}</p>
             )}
             {canOrder ? (
               <Link
