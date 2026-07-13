@@ -29,7 +29,7 @@ router.get('/tables', authRequired, requireAdmin, async (req, res) => {
     return res.status(503).json({ error: 'ready2order nicht verbunden' });
   }
   try {
-    const tables = await r2o.listDeliveryTables();
+    const { tables, meta } = await r2o.listDeliveryTablesWithMeta();
     return res.json({
       tables: tables.map((t) => ({
         table_id: t.table_id,
@@ -37,6 +37,7 @@ router.get('/tables', authRequired, requireAdmin, async (req, res) => {
         tableArea_id: t.tableArea_id ?? t.table_area_id,
       })),
       count: tables.length,
+      meta,
     });
   } catch (err) {
     const detail = err.response?.data || err.message;

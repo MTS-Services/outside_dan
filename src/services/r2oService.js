@@ -845,14 +845,10 @@ async function listTables() {
 /**
  * Return only Delivery-area tables (e.g. Delivery 1 … Delivery 9).
  * Matches by tableArea name/shortName, tableArea_id, or table name.
+ * Also returns `meta` for admin diagnostics when nothing matches.
  */
-async function listDeliveryTables() {
+async function listDeliveryTablesWithMeta() {
   const [areas, tables] = await Promise.all([listTableAreas(), listTables()]);
-
-  if (!tables.length) {
-    console.warn('[r2o] /tables returned no rows — check API token permissions');
-    return [];
-  }
 
   const areaById = new Map();
   const deliveryAreaIds = new Set();
@@ -875,21 +871,28 @@ async function listDeliveryTables() {
     if (area && isDeliveryLabel(tableAreaLabel(area))) return true;
 
     return isDeliveryTableName(table.table_name || table.name);
-  });
+  }).sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
 
-  if (!deliveryTables.length) {
+  const meta = {
+    totalAreas: areas.length,
+    totalTables: tables.length,
+    areaNames: areas.map((a) => tableAreaLabel(a) || `Area ${a.tableArea_id}`),
+    tableNames: tables.map((t) => String(t.table_name || t.name || `Table ${t.table_id}`)),
+  };
+
+  if (!deliveryTables.length && tables.length > 0) {
     console.warn(
-      '[r2o] No delivery tables matched.',
-      `tables=${tables.length}, areas=${areas.length},`,
-      'area names:', areas.map((a) => tableAreaLabel(a) || '?').join(', '),
-      'sample table:', JSON.stringify({
-        name: tables[0]?.table_name,
-        area_id: tables[0]?.tableArea_id,
-      }),
+      '[r2o] POS may show Delivery tables, but the API only returned:',
+      JSON.stringify(meta),
     );
   }
 
-  return deliveryTables.sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
+  return { tables: deliveryTables, meta };
+}
+
+async function listDeliveryTables() {
+  const { tables } = await listDeliveryTablesWithMeta();
+  return tables;
 }
 
 /** True when the table still has open (uninvoiced) orders on it. */
@@ -1041,6 +1044,7 @@ module.exports = {
   syncOrderToR2o,
   listTables,
   listDeliveryTables,
+  listDeliveryTablesWithMeta,
   pickDeliveryTable,
   isConfigured,
   clearR2oAccountCaches,
