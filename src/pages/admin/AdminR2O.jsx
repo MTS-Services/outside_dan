@@ -29,6 +29,7 @@ export default function AdminR2O() {
   // Booking mode (invoice vs. auto delivery tables)
   const [salesMode, setSalesMode] = useState('invoice');
   const [deliveryTables, setDeliveryTables] = useState([]);
+  const [tablesMeta, setTablesMeta] = useState(null);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
 
@@ -51,6 +52,7 @@ export default function AdminR2O() {
       const { data } = await api.get('/r2o/tables');
       const rows = Array.isArray(data) ? data : (data?.tables || []);
       setDeliveryTables(rows);
+      setTablesMeta(data?.meta || null);
     } catch {
       setDeliveryTables([]);
     } finally {
@@ -311,9 +313,22 @@ export default function AdminR2O() {
                           </span>
                         ))}
                       </div>
+                    ) : tablesMeta?.totalTables > 0 ? (
+                      <div className="space-y-2 text-xs">
+                        <p className="text-amber-400/90">
+                          Die Delivery-Tische sind im POS sichtbar, aber die ready2order API liefert sie nicht.
+                          Die API sieht nur: Bereiche [{tablesMeta.areaNames?.join(', ')}],
+                          Tische [{tablesMeta.tableNames?.join(', ')}].
+                        </p>
+                        <p className="text-white/45">
+                          Bitte ready2order Support kontaktieren (Kundennummer A40396975a) und fragen,
+                          warum der Delivery-Bereich nicht über die API verfügbar ist.
+                          Alternativ ready2order-Verbindung im Admin neu verknüpfen.
+                        </p>
+                      </div>
                     ) : (
                       <p className="text-xs text-amber-400/90">
-                        Keine Delivery-Tische gefunden. Bitte im ready2order POS einen „Delivery“-Bereich mit Tischen anlegen.
+                        Keine Tische von der ready2order API erhalten. Bitte Verbindung prüfen oder Support kontaktieren.
                       </p>
                     )}
                     <button type="button" onClick={loadTables} disabled={tablesLoading} className="btn-ghost text-xs">
