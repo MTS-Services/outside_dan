@@ -29,12 +29,16 @@ router.get('/tables', authRequired, requireAdmin, async (req, res) => {
     return res.status(503).json({ error: 'ready2order nicht verbunden' });
   }
   try {
-    const { tables, meta } = await r2o.listDeliveryTablesWithMeta();
+    const { tables, deliveryTables, meta } = await r2o.listPosTablesWithMeta();
     return res.json({
       tables: tables.map((t) => ({
         table_id: t.table_id,
         table_name: t.table_name || t.name,
         tableArea_id: t.tableArea_id ?? t.table_area_id,
+      })),
+      deliveryTables: deliveryTables.map((t) => ({
+        table_id: t.table_id,
+        table_name: t.table_name || t.name,
       })),
       count: tables.length,
       meta,
@@ -56,7 +60,7 @@ router.put('/sales-mode', authRequired, requireAdmin, async (req, res) => {
     // table mode auto-picks the next free Delivery table — no manual selection
     ...(salesMode === 'invoice' ? { r2o_table_id: '', r2o_table_name: '' } : {}),
   });
-  const deliveryTables = salesMode === 'table' ? await r2o.listDeliveryTables() : [];
+  const deliveryTables = salesMode === 'table' ? (await r2o.listPosTablesWithMeta()).tables : [];
   res.json({
     salesMode,
     deliveryTables: deliveryTables.map((t) => ({

@@ -895,6 +895,25 @@ async function listDeliveryTables() {
   return tables;
 }
 
+/** All tables the ready2order API exposes (used when Delivery area is not in API). */
+async function listPosTablesWithMeta() {
+  const [areas, allTables] = await Promise.all([listTableAreas(), listTables()]);
+  const { tables: deliveryTables, meta: deliveryMeta } = await listDeliveryTablesWithMeta();
+
+  const sorted = [...allTables].sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
+  const meta = {
+    ...deliveryMeta,
+    deliveryCount: deliveryTables.length,
+    usingFallback: deliveryTables.length === 0 && sorted.length > 0,
+  };
+
+  return {
+    tables: sorted,
+    deliveryTables,
+    meta,
+  };
+}
+
 /** True when the table still has open (uninvoiced) orders on it. */
 async function tableHasOpenOrders(tableId) {
   try {
@@ -909,30 +928,35 @@ async function tableHasOpenOrders(tableId) {
 }
 
 /**
- * Pick the next free Delivery table (Delivery 1, then 2, …).
- * If all are occupied, falls back to the first delivery table.
+ * Pick a POS table for an online order.
+ * Prefers Delivery tables; falls back to any table the API exposes (e.g. Checkout).
+ * Booking on a table avoids a finalized invoice that cannot be deleted.
  */
-async function pickDeliveryTable() {
-  const deliveryTables = await listDeliveryTables();
-  if (!deliveryTables.length) {
-    throw new Error('Keine Delivery-Tische in ready2order gefunden — bitte Delivery-Bereich im POS anlegen');
+async function pickTableForOrder() {
+  const { tables: allTables, deliveryTables } = await listPosTablesWithMeta();
+  const candidates = deliveryTables.length ? deliveryTables : allTables;
+
+  if (!candidates.length) {
+    throw new Error('Keine Tische über die ready2order API verfügbar — bitte Verbindung prüfen');
   }
 
-  for (const table of deliveryTables) {
+  for (const table of candidates) {
     const occupied = await tableHasOpenOrders(table.table_id);
     if (!occupied) {
       return {
         tableId: table.table_id,
-        tableName: table.table_name,
+        tableName: table.table_name || table.name,
+        usedFallback: !deliveryTables.length,
       };
     }
   }
 
-  const fallback = deliveryTables[0];
-  console.warn(`[r2o] All delivery tables occupied — using ${fallback.table_name}`);
+  const fallback = candidates[0];
+  console.warn(`[r2o] All candidate tables occupied — using ${fallback.table_name}`);
   return {
     tableId: fallback.table_id,
-    tableName: fallback.table_name,
+    tableName: fallback.table_name || fallback.name,
+    usedFallback: !deliveryTables.length,
   };
 }
 
@@ -985,7 +1009,7 @@ async function syncOrderToR2o(order) {
   }
   const mode = await siteSettings.getSetting('r2o_sales_mode', 'invoice');
   if (mode === 'table') {
-    const { tableId, tableName } = await pickDeliveryTable();
+    const { tableId, tableName } = await pickTableForOrder();
     const result = await createTableOrderForOrder(order, tableId, tableName);
     return { ...result, tableId, tableName };
   }
@@ -1045,7 +1069,8 @@ module.exports = {
   listTables,
   listDeliveryTables,
   listDeliveryTablesWithMeta,
-  pickDeliveryTable,
+  listPosTablesWithMeta,
+  pickTableForOrder,
   isConfigured,
   clearR2oAccountCaches,
   createCouponInR2o,
