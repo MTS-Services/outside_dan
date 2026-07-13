@@ -793,11 +793,18 @@ async function listDiscountsFromR2o() {
 
 function normalizeR2oList(data) {
   if (Array.isArray(data)) return data;
-  if (data && typeof data === 'object') {
-    const nested = data.tables || data.tableAreas || data.items || data.data;
-    if (Array.isArray(nested)) return nested;
+  if (!data || typeof data !== 'object') return [];
+  for (const key of ['tables', 'tableAreas', 'items', 'data', 'results', 'records']) {
+    if (Array.isArray(data[key])) return data[key];
   }
+  // Some accounts return a single object instead of an array.
+  if (data.table_id != null || data.tableArea_id != null) return [data];
   return [];
+}
+
+function r2oId(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return String(value);
 }
 
 function isDeliveryLabel(name = '') {
@@ -805,8 +812,18 @@ function isDeliveryLabel(name = '') {
   return n.startsWith('deliv') || n === 'delivery' || n.includes('liefer');
 }
 
+function isDeliveryTableName(name = '') {
+  const n = String(name).trim();
+  return isDeliveryLabel(n) || /^delivery\s*\d+/i.test(n);
+}
+
+function tableAreaLabel(area) {
+  if (!area) return '';
+  return String(area.tableArea_name || area.name || area.tableArea_shortName || area.shortName || '');
+}
+
 function deliveryTableSortKey(table) {
-  const name = String(table.table_name || '');
+  const name = String(table.table_name || table.name || '');
   const num = name.match(/(\d+)\s*$/);
   return num ? parseInt(num[1], 10) : Number(table.table_order || 0);
 }
@@ -827,20 +844,50 @@ async function listTables() {
 
 /**
  * Return only Delivery-area tables (e.g. Delivery 1 … Delivery 9).
- * Matches by tableArea name/shortName, or table name starting with "Delivery".
+ * Matches by tableArea name/shortName, tableArea_id, or table name.
  */
 async function listDeliveryTables() {
   const [areas, tables] = await Promise.all([listTableAreas(), listTables()]);
-  const deliveryAreaIds = new Set(
-    areas
-      .filter((a) => isDeliveryLabel(a.tableArea_name) || isDeliveryLabel(a.tableArea_shortName))
-      .map((a) => a.tableArea_id),
-  );
 
-  const deliveryTables = tables.filter((t) => {
-    if (deliveryAreaIds.size && deliveryAreaIds.has(t.tableArea_id)) return true;
-    return isDeliveryLabel(t.table_name);
+  if (!tables.length) {
+    console.warn('[r2o] /tables returned no rows — check API token permissions');
+    return [];
+  }
+
+  const areaById = new Map();
+  const deliveryAreaIds = new Set();
+  for (const area of areas) {
+    const id = r2oId(area.tableArea_id ?? area.id);
+    if (!id) continue;
+    areaById.set(id, area);
+    const label = tableAreaLabel(area);
+    const short = String(area.tableArea_shortName || area.shortName || '');
+    if (isDeliveryLabel(label) || isDeliveryLabel(short)) {
+      deliveryAreaIds.add(id);
+    }
+  }
+
+  const deliveryTables = tables.filter((table) => {
+    const areaId = r2oId(table.tableArea_id ?? table.table_area_id);
+    if (areaId && deliveryAreaIds.has(areaId)) return true;
+
+    const area = areaId ? areaById.get(areaId) : null;
+    if (area && isDeliveryLabel(tableAreaLabel(area))) return true;
+
+    return isDeliveryTableName(table.table_name || table.name);
   });
+
+  if (!deliveryTables.length) {
+    console.warn(
+      '[r2o] No delivery tables matched.',
+      `tables=${tables.length}, areas=${areas.length},`,
+      'area names:', areas.map((a) => tableAreaLabel(a) || '?').join(', '),
+      'sample table:', JSON.stringify({
+        name: tables[0]?.table_name,
+        area_id: tables[0]?.tableArea_id,
+      }),
+    );
+  }
 
   return deliveryTables.sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
 }

@@ -29,7 +29,15 @@ router.get('/tables', authRequired, requireAdmin, async (req, res) => {
     return res.status(503).json({ error: 'ready2order nicht verbunden' });
   }
   try {
-    return res.json(await r2o.listDeliveryTables());
+    const tables = await r2o.listDeliveryTables();
+    return res.json({
+      tables: tables.map((t) => ({
+        table_id: t.table_id,
+        table_name: t.table_name || t.name,
+        tableArea_id: t.tableArea_id ?? t.table_area_id,
+      })),
+      count: tables.length,
+    });
   } catch (err) {
     const detail = err.response?.data || err.message;
     return res.status(502).json({ error: 'Delivery-Tische konnten nicht geladen werden', detail });
