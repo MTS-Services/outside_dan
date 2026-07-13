@@ -54,7 +54,7 @@ export default function AdminR2O() {
       setPosTables(rows);
       setTablesMeta(data?.meta || null);
     } catch {
-      setDeliveryTables([]);
+      setPosTables([]);
     } finally {
       setTablesLoading(false);
     }
@@ -65,12 +65,7 @@ export default function AdminR2O() {
     try {
       const { data } = await api.put('/r2o/sales-mode', { salesMode });
       setStatus((s) => ({ ...s, salesMode: data.salesMode }));
-      if (Array.isArray(data.deliveryTables)) {
-        setPosTables(data.deliveryTables.map((t) => ({
-          table_id: t.tableId,
-          table_name: t.tableName,
-        })));
-      } else if (Array.isArray(data.tables)) {
+      if (Array.isArray(data.tables)) {
         setPosTables(data.tables.map((t) => ({
           table_id: t.table_id ?? t.tableId,
           table_name: t.table_name ?? t.tableName,
@@ -301,34 +296,25 @@ export default function AdminR2O() {
                 {salesMode === 'table' && (
                   <div className="mt-3 space-y-2">
                     {tablesLoading ? (
-                      <p className="text-xs text-white/40">Lade POS-Tische…</p>
+                      <p className="text-xs text-white/40">Prüfe Verbindung…</p>
                     ) : posTables.length > 0 ? (
-                      <>
-                        <div className="flex flex-wrap gap-2">
-                          {posTables.map((t) => (
-                            <span
-                              key={t.table_id}
-                              className="text-xs px-2.5 py-1 rounded-lg bg-[#D9AF47]/10 border border-[#D9AF47]/25 text-[#D9AF47]"
-                            >
-                              {t.table_name}
-                            </span>
-                          ))}
-                        </div>
-                        {tablesMeta?.usingFallback && (
-                          <p className="text-xs text-white/45">
-                            Die API liefert aktuell diesen Tisch (z. B. Checkout). Das reicht — Bestellungen
-                            landen dort statt als nicht löschbare Rechnung.
-                          </p>
-                        )}
-                      </>
+                      <p className="text-xs text-emerald-400/90">
+                        Bereit — Online-Bestellungen werden auf einen POS-Tisch gebucht
+                        {posTables.length === 1
+                          ? ` („${posTables[0].table_name}“)`
+                          : ` (Delivery 1–${posTables.length})`}
+                        , nicht als nicht löschbare Rechnung.
+                      </p>
                     ) : (
                       <p className="text-xs text-amber-400/90">
-                        Keine Tische von der ready2order API erhalten. Bitte Verbindung prüfen.
+                        Kein Tisch über die API erreichbar. Bitte ready2order-Verbindung prüfen.
                       </p>
                     )}
-                    <button type="button" onClick={loadTables} disabled={tablesLoading} className="btn-ghost text-xs">
-                      {tablesLoading ? 'Lade…' : 'Tische neu laden'}
-                    </button>
+                    {tablesMeta?.usingCheckoutFallback && (
+                      <p className="text-xs text-white/45">
+                        Delivery-Bereich ist in der API nicht sichtbar — es wird der Tisch „Checkout“ verwendet.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
