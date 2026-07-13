@@ -1,9 +1,9 @@
 const siteSettingService = require('../services/siteSettingService');
 
-// GET /api/site-settings  — public, returns all as { key: value }
+// GET /api/site-settings  — public, returns all non-secret settings as { key: value }
 async function getAll(req, res, next) {
   try {
-    res.json(await siteSettingService.getAllSettings());
+    res.json(await siteSettingService.getPublicSettings());
   } catch (err) {
     next(err);
   }
@@ -29,4 +29,16 @@ async function setOrdersAccepted(req, res, next) {
   }
 }
 
-module.exports = { getAll, upsertAll, setOrdersAccepted };
+// PATCH /api/site-settings/delivery-schedule — staff, body: { enabled, schedule }
+async function setDeliverySchedule(req, res, next) {
+  try {
+    const delivery_schedule_enabled = req.body.enabled === true;
+    const delivery_schedule = siteSettingService.normalizeDeliverySchedule(req.body.schedule);
+    await siteSettingService.upsertMany({ delivery_schedule_enabled, delivery_schedule });
+    res.json({ delivery_schedule_enabled, delivery_schedule });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getAll, upsertAll, setOrdersAccepted, setDeliverySchedule };

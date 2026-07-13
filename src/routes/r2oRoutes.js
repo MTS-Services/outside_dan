@@ -7,12 +7,49 @@ const config = require('../config');
 const { authRequired, requireAdmin, requireStaff } = require('../middlewares/auth');
 const r2oConfig = require('../services/r2oConfigService');
 const r2o = require('../services/r2oService');
+const siteSettings = require('../services/siteSettingService');
 
 const R2O_BASE = config.r2o.baseUrl;
 
 // ─── GET /api/r2o/status ──────────────────────────────────────────────────────
 router.get('/status', authRequired, requireAdmin, async (req, res) => {
-  res.json(await r2oConfig.getStatus());
+  const [status, salesMode, tableId, tableName] = await Promise.all([
+    r2oConfig.getStatus(),
+    siteSettings.getSetting('r2o_sales_mode', 'invoice'),
+    siteSettings.getSetting('r2o_table_id', ''),
+    siteSettings.getSetting('r2o_table_name', ''),
+  ]);
+  res.json({ ...status, salesMode, tableId: String(tableId || ''), tableName: String(tableName || '') });
+});
+
+// ─── GET /api/r2o/tables ──────────────────────────────────────────────────────
+router.get('/tables', authRequired, requireAdmin, async (req, res) => {
+  if (!r2o.isConfigured()) {
+    return res.status(503).json({ error: 'ready2order nicht verbunden' });
+  }
+  try {
+    return res.json(await r2o.listTables());
+  } catch (err) {
+    const detail = err.response?.data || err.message;
+    return res.status(502).json({ error: 'Tische konnten nicht geladen werden', detail });
+  }
+});
+
+// ─── PUT /api/r2o/sales-mode ──────────────────────────────────────────────────
+router.put('/sales-mode', authRequired, requireAdmin, async (req, res) => {
+  const { salesMode, tableId, tableName } = req.body || {};
+  if (!['invoice', 'table'].includes(salesMode)) {
+    return res.status(400).json({ error: 'Ungültiger Buchungsmodus' });
+  }
+  if (salesMode === 'table' && !String(tableId || '').trim()) {
+    return res.status(400).json({ error: 'Bitte einen Tisch auswählen' });
+  }
+  await siteSettings.upsertMany({
+    r2o_sales_mode: salesMode,
+    r2o_table_id: String(tableId || '').trim(),
+    r2o_table_name: String(tableName || '').trim(),
+  });
+  res.json({ salesMode, tableId: String(tableId || '').trim(), tableName: String(tableName || '').trim() });
 });
 
 // ─── PUT /api/r2o/developer-token ───────────────────────────────────────────

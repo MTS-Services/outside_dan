@@ -9,6 +9,7 @@ const config = require('../config');
 const siteSettings = require('./siteSettingService');
 
 const ORDERS_CLOSED_MESSAGE = 'Wir nehmen derzeit keine Bestellungen entgegen.';
+const OUTSIDE_DELIVERY_HOURS_MESSAGE = 'Bestellungen sind derzeit nur innerhalb unserer Lieferzeiten möglich.';
 
 const DELIVERY_FEE = 2.5;
 const TAX_RATE = 0;
@@ -110,6 +111,11 @@ async function _resolveCart(items) {
 async function createOrder(input, userId = null) {
   if (!(await siteSettings.areOrdersAccepted())) {
     throw new ApiError(503, ORDERS_CLOSED_MESSAGE);
+  }
+
+  const scheduleStatus = await siteSettings.getDeliveryScheduleStatus();
+  if (!scheduleStatus.open) {
+    throw new ApiError(503, OUTSIDE_DELIVERY_HOURS_MESSAGE);
   }
 
   const { orderItemsCreate, subtotal } = await _resolveCart(input.items);
@@ -301,7 +307,7 @@ async function acceptOrder(id, { acceptanceNote, userId } = {}) {
 
   let r2oResult = { invoiceId: null, receiptNo: null };
   try {
-    r2oResult = await r2o.createInvoiceForOrder(order);
+    r2oResult = await r2o.syncOrderToR2o(order);
   } catch (err) {
     console.warn('[r2o] Sync fehlgeschlagen:', err.message);
   }

@@ -190,6 +190,20 @@ const ordersAccepted = Joi.object({
   orders_accepted: Joi.boolean().required(),
 });
 
+const timeString = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+const deliverySchedule = Joi.object({
+  enabled: Joi.boolean().required(),
+  schedule: Joi.array().items(Joi.object({
+    day: Joi.string().valid('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun').required(),
+    enabled: Joi.boolean().required(),
+    windows: Joi.array().items(Joi.object({
+      from: timeString.required(),
+      to: timeString.required(),
+    })).max(6).default([]),
+  })).length(7).required(),
+});
+
 const contactSubmit = Joi.object({
   name: Joi.string().min(2).max(120).required(),
   email: Joi.string().email({ tlds: { allow: false } }).required(),
@@ -226,6 +240,6 @@ module.exports = {
   paypalCreate,
   paypalConfig,
   forgotPassword, resetPassword,
-  deliveryZone, coupon, legalPage, ordersAccepted,
+  deliveryZone, coupon, legalPage, ordersAccepted, deliverySchedule,
   contactSubmit, contactRead, contactReply, verifyEmail, resendVerification,
 };

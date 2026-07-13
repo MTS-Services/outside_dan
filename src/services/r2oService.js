@@ -12,6 +12,7 @@ const axios = require('axios');
 const config = require('../config');
 const prisma = require('../config/prisma');
 const r2oConfig = require('./r2oConfigService');
+const siteSettings = require('./siteSettingService');
 
 const client = axios.create({
   baseURL: config.r2o.baseUrl,
@@ -287,16 +288,11 @@ async function resolveCustomerId(order) {
   return undefined;
 }
 
-/** Build invoice payload from an internal order. */
-async function buildInvoicePayload(order) {
-  const [paymentMethodId, userId, vatId, customerId, zeroVatId] = await Promise.all([
-    resolvePaymentMethodId(order.paymentMethod),
-    resolveUserId(),
-    resolveDefaultVatId(),
-    resolveCustomerId(order),
-    resolveZeroVatId(),
-  ]);
-
+/**
+ * Build the line items (food, extras, delivery fee, discount distribution,
+ * synthetic customer-info line) shared by invoice and table-order payloads.
+ */
+async function buildOrderLineItems(order, { vatId, zeroVatId }) {
   const items = [];
   // Process items sequentially (not concurrently) so the array order is
   // deterministic — Kundeninfo is pushed after this loop and must be last.
@@ -381,6 +377,55 @@ async function buildInvoicePayload(order) {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Receipt rendering strategy:
+  //   - We always link a customer record via `customer_id` (good for r2o
+  //     reports + admin invoice list).
+  //   - We ALSO prepend a synthetic zero-price "Kundeninfo" line item
+  //     because r2o's thermal receipt template on this account does not
+  //     auto-print the linked customer block. Item names are the only field
+  //     that reliably renders on the receipt.
+  // ─────────────────────────────────────────────────────────────────────────
+  const infoAddress = [order.street, order.postalCode, order.city].filter(Boolean).join(', ');
+  const receiptInfoLines = [];
+  if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
+  if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
+  if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
+  if (infoAddress) receiptInfoLines.push(`Adr: ${infoAddress}`);
+  if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
+  if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
+
+  if (receiptInfoLines.length > 0) {
+    // r2o sorts receipt line items alphabetically by item_name, ignoring
+    // submission order. Prefix with "zzz " so this entry always renders last
+    // (after any food item starting A–Z, including "ZEPPOLINE").
+    const infoProductId = await resolveProductId('zzz_Kundeninfo', 0, vatId);
+    items.push({
+      product_id: infoProductId,
+      item_name: `zzz Kundeninfo\n${receiptInfoLines.join('\n')}`,
+      item_price: 0,
+      item_quantity: 1,
+      item_sort: 9999,
+      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+    });
+  }
+
+  return items;
+}
+
+/** Build invoice payload from an internal order. */
+async function buildInvoicePayload(order) {
+  const [paymentMethodId, userId, vatId, customerId, zeroVatId] = await Promise.all([
+    resolvePaymentMethodId(order.paymentMethod),
+    resolveUserId(),
+    resolveDefaultVatId(),
+    resolveCustomerId(order),
+    resolveZeroVatId(),
+  ]);
+
+  const items = await buildOrderLineItems(order, { vatId, zeroVatId });
+  const discount = Number(order.discount || 0);
+
   // Split customerName into first / last name
   const nameParts = (order.customerName || '').trim().split(/\s+/);
   const firstName = nameParts[0] || '';
@@ -403,38 +448,6 @@ async function buildInvoicePayload(order) {
 
   // A4 PDF renders `invoice_text` at the bottom — use the inline " | "-joined version.
   const detailsInline = notesParts.join(' | ');
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Receipt rendering strategy:
-  //   - We always link a customer record via `customer_id` (good for r2o
-  //     reports + admin invoice list).
-  //   - We ALSO prepend a synthetic zero-price "Kundeninfo" line item
-  //     because r2o's thermal receipt template on this account does not
-  //     auto-print the linked customer block. Item names are the only field
-  //     that reliably renders on the receipt.
-  // ─────────────────────────────────────────────────────────────────────────
-  const receiptInfoLines = [];
-  if (order.customerName) receiptInfoLines.push(`Kunde: ${order.customerName}`);
-  if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
-  if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
-  if (addressParts) receiptInfoLines.push(`Adr: ${addressParts}`);
-  if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
-  if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
-
-  if (receiptInfoLines.length > 0) {
-    // r2o sorts receipt line items alphabetically by item_name, ignoring
-    // submission order. Prefix with "zzz " so this entry always renders last
-    // (after any food item starting A–Z, including "ZEPPOLINE").
-    const infoProductId = await resolveProductId('zzz_Kundeninfo', 0, vatId);
-    items.push({
-      product_id: infoProductId,
-      item_name: `zzz Kundeninfo\n${receiptInfoLines.join('\n')}`,
-      item_price: 0,
-      item_quantity: 1,
-      item_sort: 9999,
-      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
-    });
-  }
 
   const lastNameForReceipt = baseLastName;
 
@@ -770,6 +783,82 @@ async function listDiscountsFromR2o() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Table booking mode: instead of creating a finalized invoice (which cannot be
+// deleted in ready2order), the order is booked onto a POS table. Staff see it
+// on the table in the register, can edit or remove items, and check it out
+// there — exactly like an in-house order.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch all tables from ready2order (for the admin table picker). */
+async function listTables() {
+  if (!isConfigured()) return [];
+  const { data } = await client.get('/tables', { params: { limit: 250 } });
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Book an order onto a POS table via POST /orders.
+ * Returns `{ invoiceId: null, receiptNo: null, tableOrder: true }` or throws.
+ */
+async function createTableOrderForOrder(order, tableId) {
+  const [vatId, zeroVatId] = await Promise.all([
+    resolveDefaultVatId(),
+    resolveZeroVatId(),
+  ]);
+  const lineItems = await buildOrderLineItems(order, { vatId, zeroVatId });
+
+  const payload = {
+    table_id: Number(tableId),
+    price_base: 'gross',
+    items: lineItems.map((it) => ({
+      product_id: it.product_id,
+      item_name: it.item_name,
+      item_price: String(it.item_price),
+      item_quantity: String(it.item_quantity),
+      ...(it.item_vatId !== undefined ? { item_vatId: it.item_vatId } : {}),
+      ...(order.orderNumber ? { item_comment: `Online-Bestellung ${order.orderNumber}` } : {}),
+    })),
+  };
+
+  try {
+    const { data } = await client.post('/orders', payload);
+    console.log(`[r2o] Order ${order.orderNumber} booked on table ${tableId}`);
+    return { invoiceId: null, receiptNo: null, tableOrder: true, raw: data };
+  } catch (err) {
+    console.error('[r2o] table order creation failed:', {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+    throw err;
+  }
+}
+
+/**
+ * Sync an accepted order to ready2order using the configured mode:
+ *   - r2o_sales_mode = 'table'   → book onto the configured POS table
+ *   - r2o_sales_mode = 'invoice' → create a finalized invoice (legacy default)
+ */
+async function syncOrderToR2o(order) {
+  if (!isConfigured()) {
+    return { invoiceId: null, receiptNo: null, skipped: true };
+  }
+  const [mode, tableId] = await Promise.all([
+    siteSettings.getSetting('r2o_sales_mode', 'invoice'),
+    siteSettings.getSetting('r2o_table_id', ''),
+  ]);
+  if (mode === 'table') {
+    if (!tableId) {
+      throw new Error('r2o Tisch-Modus aktiv, aber kein Tisch konfiguriert');
+    }
+    // No invoice fallback here on purpose — a finalized invoice cannot be
+    // deleted in the POS, which is exactly what table mode is meant to avoid.
+    return createTableOrderForOrder(order, tableId);
+  }
+  return createInvoiceForOrder(order);
+}
+
 /**
  * Create an invoice (receipt) in ready2order.
  * Returns `{ invoiceId, receiptNo }` or throws on failure.
@@ -818,6 +907,9 @@ module.exports = {
   listProducts,
   getPaymentMethods,
   createInvoiceForOrder,
+  createTableOrderForOrder,
+  syncOrderToR2o,
+  listTables,
   isConfigured,
   clearR2oAccountCaches,
   createCouponInR2o,
