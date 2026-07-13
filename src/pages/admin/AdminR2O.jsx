@@ -26,9 +26,9 @@ export default function AdminR2O() {
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // Booking mode (invoice vs. auto delivery tables)
+  // Booking mode (invoice vs. POS table — any table avoids non-deletable invoice)
   const [salesMode, setSalesMode] = useState('invoice');
-  const [deliveryTables, setDeliveryTables] = useState([]);
+  const [posTables, setPosTables] = useState([]);
   const [tablesMeta, setTablesMeta] = useState(null);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
@@ -51,7 +51,7 @@ export default function AdminR2O() {
     try {
       const { data } = await api.get('/r2o/tables');
       const rows = Array.isArray(data) ? data : (data?.tables || []);
-      setDeliveryTables(rows);
+      setPosTables(rows);
       setTablesMeta(data?.meta || null);
     } catch {
       setDeliveryTables([]);
@@ -66,19 +66,19 @@ export default function AdminR2O() {
       const { data } = await api.put('/r2o/sales-mode', { salesMode });
       setStatus((s) => ({ ...s, salesMode: data.salesMode }));
       if (Array.isArray(data.deliveryTables)) {
-        setDeliveryTables(data.deliveryTables.map((t) => ({
+        setPosTables(data.deliveryTables.map((t) => ({
           table_id: t.tableId,
           table_name: t.tableName,
         })));
       } else if (Array.isArray(data.tables)) {
-        setDeliveryTables(data.tables.map((t) => ({
+        setPosTables(data.tables.map((t) => ({
           table_id: t.table_id ?? t.tableId,
           table_name: t.table_name ?? t.tableName,
         })));
       }
       toast.success(
         data.salesMode === 'table'
-          ? `Bestellungen werden automatisch auf Delivery-Tische gebucht (${data.deliveryTables?.length || 0} verfügbar)`
+          ? 'Bestellungen werden auf einen POS-Tisch gebucht (keine sofortige Rechnung)'
           : 'Bestellungen werden als Rechnung erstellt',
       );
     } catch (e) {
@@ -293,46 +293,41 @@ export default function AdminR2O() {
                 className="mt-1 accent-[#D9AF47]"
               />
               <div className="flex-1">
-                <span className="font-semibold text-white block text-sm">Auf Delivery-Tisch buchen (empfohlen)</span>
+                <span className="font-semibold text-white block text-sm">Auf POS-Tisch buchen (empfohlen)</span>
                 <span className="text-xs text-white/50 mt-0.5 block">
-                  Jede Online-Bestellung wird automatisch auf den nächsten freien Delivery-Tisch gebucht
-                  (z. B. Delivery 1, Delivery 2, …). Das Personal kann sie im POS bearbeiten, stornieren und abkassieren.
+                  Jede angenommene Online-Bestellung wird auf einen Tisch im Kassensystem gebucht — keine
+                  sofortige Rechnung. Im POS kann das Personal die Bestellung bearbeiten, löschen oder abkassieren.
                 </span>
                 {salesMode === 'table' && (
                   <div className="mt-3 space-y-2">
                     {tablesLoading ? (
-                      <p className="text-xs text-white/40">Lade Delivery-Tische…</p>
-                    ) : deliveryTables.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {deliveryTables.map((t) => (
-                          <span
-                            key={t.table_id}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-[#D9AF47]/10 border border-[#D9AF47]/25 text-[#D9AF47]"
-                          >
-                            {t.table_name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : tablesMeta?.totalTables > 0 ? (
-                      <div className="space-y-2 text-xs">
-                        <p className="text-amber-400/90">
-                          Die Delivery-Tische sind im POS sichtbar, aber die ready2order API liefert sie nicht.
-                          Die API sieht nur: Bereiche [{tablesMeta.areaNames?.join(', ')}],
-                          Tische [{tablesMeta.tableNames?.join(', ')}].
-                        </p>
-                        <p className="text-white/45">
-                          Bitte ready2order Support kontaktieren (Kundennummer A40396975a) und fragen,
-                          warum der Delivery-Bereich nicht über die API verfügbar ist.
-                          Alternativ ready2order-Verbindung im Admin neu verknüpfen.
-                        </p>
-                      </div>
+                      <p className="text-xs text-white/40">Lade POS-Tische…</p>
+                    ) : posTables.length > 0 ? (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {posTables.map((t) => (
+                            <span
+                              key={t.table_id}
+                              className="text-xs px-2.5 py-1 rounded-lg bg-[#D9AF47]/10 border border-[#D9AF47]/25 text-[#D9AF47]"
+                            >
+                              {t.table_name}
+                            </span>
+                          ))}
+                        </div>
+                        {tablesMeta?.usingFallback && (
+                          <p className="text-xs text-white/45">
+                            Die API liefert aktuell diesen Tisch (z. B. Checkout). Das reicht — Bestellungen
+                            landen dort statt als nicht löschbare Rechnung.
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-xs text-amber-400/90">
-                        Keine Tische von der ready2order API erhalten. Bitte Verbindung prüfen oder Support kontaktieren.
+                        Keine Tische von der ready2order API erhalten. Bitte Verbindung prüfen.
                       </p>
                     )}
                     <button type="button" onClick={loadTables} disabled={tablesLoading} className="btn-ghost text-xs">
-                      {tablesLoading ? 'Lade…' : 'Delivery-Tische neu laden'}
+                      {tablesLoading ? 'Lade…' : 'Tische neu laden'}
                     </button>
                   </div>
                 )}
