@@ -310,6 +310,26 @@ async function acceptOrder(id, { acceptanceNote, userId } = {}) {
     r2oResult = await r2o.syncOrderToR2o(order);
   } catch (err) {
     console.warn('[r2o] Sync fehlgeschlagen:', err.message);
+    const code = err.response?.data?.code || err.response?.data?.details?.code;
+    const msg = String(err.response?.data?.msg || err.message || '');
+    if (
+      code === 'no-open-daily-report'
+      || code === 'no_open_day'
+      || /no open dailyreport/i.test(msg)
+      || /no open day/i.test(msg)
+    ) {
+      throw new ApiError(
+        400,
+        'ready2order: Der Tag ist geschlossen. Bitte in ready2order zuerst „Tag eröffnen“ klicken, dann die Bestellung erneut akzeptieren.',
+      );
+    }
+    // Other R2O errors: still accept locally, but warn via response field
+    r2oResult = {
+      invoiceId: null,
+      receiptNo: null,
+      syncFailed: true,
+      syncError: msg || err.message,
+    };
   }
 
   const updated = await prisma.order.update({
@@ -331,6 +351,9 @@ async function acceptOrder(id, { acceptanceNote, userId } = {}) {
   emitStatus(updated, { acceptanceNote });
   pushStatusToCustomer(updated, { acceptanceNote });
   email.sendOrderAccepted(updated).catch(() => {});
+  if (r2oResult.syncFailed) {
+    updated.r2oSyncWarning = r2oResult.syncError;
+  }
   return updated;
 }
 
