@@ -414,7 +414,7 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
 }
 
 /** Build invoice payload from an internal order. */
-async function buildInvoicePayload(order) {
+async function buildInvoicePayload(order, { tableId } = {}) {
   const [paymentMethodId, userId, vatId, customerId, zeroVatId] = await Promise.all([
     resolvePaymentMethodId(order.paymentMethod),
     resolveUserId(),
@@ -456,6 +456,7 @@ async function buildInvoicePayload(order) {
     ...(paymentMethodId !== undefined ? { paymentMethod_id: paymentMethodId } : {}),
     ...(userId !== undefined ? { user_id: userId } : {}),
     ...(customerId !== undefined ? { customer_id: customerId } : {}),
+    ...(tableId ? { table_id: Number(tableId) } : {}),
     // Shown on A4 PDF invoice
     invoice_text: detailsInline,
     invoice_isPaid: isPaid,
@@ -1002,53 +1003,58 @@ async function createTableOrderForOrder(order, tableId, tableName = '') {
 }
 
 /**
- * Sync an accepted order to ready2order using the configured mode:
- *   - r2o_sales_mode = 'table'   → auto-book onto next free Delivery table
- *   - r2o_sales_mode = 'invoice' → create a finalized invoice (legacy default)
+ * Sync an accepted order to ready2order:
+ * always create an invoice (shows under Rechnungen) and attach the configured POS table.
  */
 async function syncOrderToR2o(order) {
   if (!isConfigured()) {
     return { invoiceId: null, receiptNo: null, skipped: true };
   }
-  const mode = await siteSettings.getSetting('r2o_sales_mode', 'invoice');
-  if (mode === 'table') {
-    const { tableId, tableName } = await pickTableForOrder();
-    const result = await createTableOrderForOrder(order, tableId, tableName);
-    return { ...result, tableId, tableName };
-  }
-  return createInvoiceForOrder(order);
+  const [tableId, tableName] = await Promise.all([
+    siteSettings.getSetting('r2o_table_id', ''),
+    siteSettings.getSetting('r2o_table_name', ''),
+  ]);
+  const result = await createInvoiceForOrder(order, {
+    tableId: tableId || null,
+    tableName: tableName || null,
+  });
+  return { ...result, tableId: tableId || null, tableName: tableName || null };
 }
 
 /**
  * Create an invoice (receipt) in ready2order.
+ * Optional tableId links the invoice to a POS table (e.g. Delivery 1).
  * Returns `{ invoiceId, receiptNo }` or throws on failure.
  */
-async function createInvoiceForOrder(order) {
+async function createInvoiceForOrder(order, { tableId = null, tableName = null } = {}) {
   if (!isConfigured()) {
     return { invoiceId: null, receiptNo: null, skipped: true };
   }
   let payload;
   try {
-    payload = await buildInvoicePayload(order);
+    payload = await buildInvoicePayload(order, { tableId });
 
-    // Debug: log discount-related fields so we can verify what's sent
-    console.log('[r2o] invoice payload discount debug:', JSON.stringify({
+    console.log('[r2o] create invoice', JSON.stringify({
+      orderNumber: order.orderNumber,
+      tableId: tableId || null,
+      tableName: tableName || null,
       order_discount: order.discount,
       order_couponCode: order.couponCode,
-      coupon_r2oDiscountId: order.coupon?.r2oDiscountId,
-      payload_invoice_discounts: payload.invoice_discounts ?? 'NOT SET',
     }));
+
     const { data } = await client.post('/document/invoice', payload);
 
-    // Log what R2O returned for discounts
-    console.log('[r2o] invoice response discount debug:', JSON.stringify({
-      invoice_id: data.invoice_id,
-      discounts: data.discounts ?? 'NOT IN RESPONSE',
+    console.log('[r2o] invoice created:', JSON.stringify({
+      invoice_id: data.invoice_id || data.id,
+      invoice_number: data.invoice_number || data.receipt_number,
+      table_id: data.table_id ?? tableId ?? null,
     }));
 
     return {
       invoiceId: data.invoice_id || data.id || null,
       receiptNo: data.invoice_number || data.receipt_number || null,
+      tableId: tableId || null,
+      tableName: tableName || null,
       raw: data,
     };
   } catch (err) {

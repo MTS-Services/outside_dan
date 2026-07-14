@@ -48,23 +48,21 @@ router.get('/tables', authRequired, requireAdmin, async (req, res) => {
 });
 
 // ─── PUT /api/r2o/sales-mode ──────────────────────────────────────────────────
+// Saves the Delivery/POS table linked to online invoices.
 router.put('/sales-mode', authRequired, requireAdmin, async (req, res) => {
-  const { salesMode, tableId, tableName } = req.body || {};
-  if (!['invoice', 'table'].includes(salesMode)) {
-    return res.status(400).json({ error: 'Ungültiger Buchungsmodus' });
-  }
-  if (salesMode === 'table' && !String(tableId || '').trim()) {
+  const { tableId, tableName } = req.body || {};
+  if (!String(tableId || '').trim()) {
     return res.status(400).json({ error: 'Bitte einen Tisch auswählen (z. B. Delivery 1)' });
   }
   await siteSettings.upsertMany({
-    r2o_sales_mode: salesMode,
-    r2o_table_id: salesMode === 'table' ? String(tableId).trim() : '',
-    r2o_table_name: salesMode === 'table' ? String(tableName || '').trim() : '',
+    r2o_sales_mode: 'invoice',
+    r2o_table_id: String(tableId).trim(),
+    r2o_table_name: String(tableName || '').trim(),
   });
   res.json({
-    salesMode,
-    tableId: salesMode === 'table' ? String(tableId).trim() : '',
-    tableName: salesMode === 'table' ? String(tableName || '').trim() : '',
+    salesMode: 'invoice',
+    tableId: String(tableId).trim(),
+    tableName: String(tableName || '').trim(),
   });
 });
 
