@@ -26,8 +26,9 @@ export default function AdminR2O() {
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // Booking mode (invoice vs. POS table — any table avoids non-deletable invoice)
+  // Booking mode (invoice vs. chosen POS table)
   const [salesMode, setSalesMode] = useState('invoice');
+  const [tableId, setTableId] = useState('');
   const [posTables, setPosTables] = useState([]);
   const [tablesMeta, setTablesMeta] = useState(null);
   const [tablesLoading, setTablesLoading] = useState(false);
@@ -38,7 +39,8 @@ export default function AdminR2O() {
       const { data } = await api.get('/r2o/status');
       setStatus(data);
       setSalesMode(data.salesMode === 'table' ? 'table' : 'invoice');
-      if (data.configured) loadTables();
+      setTableId(data.tableId || '');
+      if (data.configured) loadTables(data.tableId || '');
     } catch (e) {
       toast.error(e.displayMessage || 'Status konnte nicht geladen werden');
     } finally {
@@ -46,13 +48,19 @@ export default function AdminR2O() {
     }
   }
 
-  async function loadTables() {
+  async function loadTables(preferredId = tableId) {
     setTablesLoading(true);
     try {
       const { data } = await api.get('/r2o/tables');
       const rows = Array.isArray(data) ? data : (data?.tables || []);
       setPosTables(rows);
       setTablesMeta(data?.meta || null);
+      // Prefer Delivery table if nothing selected yet
+      if (!preferredId && rows.length) {
+        const delivery = rows.find((t) => t.is_delivery)
+          || rows.find((t) => /deliv/i.test(t.table_name || ''));
+        if (delivery) setTableId(String(delivery.table_id));
+      }
     } catch {
       setPosTables([]);
     } finally {
@@ -61,19 +69,22 @@ export default function AdminR2O() {
   }
 
   async function saveSalesMode() {
+    if (salesMode === 'table' && !tableId) {
+      toast.error('Bitte einen Tisch auswählen (z. B. Delivery 1)');
+      return;
+    }
     setSavingMode(true);
     try {
-      const { data } = await api.put('/r2o/sales-mode', { salesMode });
-      setStatus((s) => ({ ...s, salesMode: data.salesMode }));
-      if (Array.isArray(data.tables)) {
-        setPosTables(data.tables.map((t) => ({
-          table_id: t.table_id ?? t.tableId,
-          table_name: t.table_name ?? t.tableName,
-        })));
-      }
+      const selected = posTables.find((t) => String(t.table_id) === String(tableId));
+      const { data } = await api.put('/r2o/sales-mode', {
+        salesMode,
+        tableId: salesMode === 'table' ? String(tableId) : '',
+        tableName: salesMode === 'table' ? String(selected?.table_name || '') : '',
+      });
+      setStatus((s) => ({ ...s, salesMode: data.salesMode, tableId: data.tableId, tableName: data.tableName }));
       toast.success(
         data.salesMode === 'table'
-          ? 'Bestellungen werden auf einen POS-Tisch gebucht (keine sofortige Rechnung)'
+          ? `Bestellungen werden auf „${data.tableName || data.tableId}“ gebucht`
           : 'Bestellungen werden als Rechnung erstellt',
       );
     } catch (e) {
@@ -290,29 +301,54 @@ export default function AdminR2O() {
               <div className="flex-1">
                 <span className="font-semibold text-white block text-sm">Auf POS-Tisch buchen (empfohlen)</span>
                 <span className="text-xs text-white/50 mt-0.5 block">
-                  Jede angenommene Online-Bestellung wird auf einen Tisch im Kassensystem gebucht — keine
-                  sofortige Rechnung. Im POS kann das Personal die Bestellung bearbeiten, löschen oder abkassieren.
+                  Bestellung landet auf dem gewählten Tisch (z. B. Delivery 1) — keine sofortige Rechnung.
+                  Im POS kann sie bearbeitet oder gelöscht werden.
                 </span>
                 {salesMode === 'table' && (
                   <div className="mt-3 space-y-2">
                     {tablesLoading ? (
-                      <p className="text-xs text-white/40">Prüfe Verbindung…</p>
+                      <p className="text-xs text-white/40">Lade Tische…</p>
                     ) : posTables.length > 0 ? (
-                      <p className="text-xs text-emerald-400/90">
-                        Bereit — Online-Bestellungen werden auf einen POS-Tisch gebucht
-                        {posTables.length === 1
-                          ? ` („${posTables[0].table_name}“)`
-                          : ` (Delivery 1–${posTables.length})`}
-                        , nicht als nicht löschbare Rechnung.
-                      </p>
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            value={tableId}
+                            onChange={(e) => setTableId(e.target.value)}
+                            className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#D9AF47]/50 max-w-full"
+                          >
+                            <option value="">— Tisch wählen —</option>
+                            {posTables.some((t) => t.is_delivery) && (
+                              <optgroup label="Delivery">
+                                {posTables.filter((t) => t.is_delivery).map((t) => (
+                                  <option key={t.table_id} value={String(t.table_id)}>
+                                    {t.table_name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label={posTables.some((t) => t.is_delivery) ? 'Andere Bereiche' : 'Alle Tische'}>
+                              {posTables.filter((t) => !t.is_delivery).map((t) => (
+                                <option key={t.table_id} value={String(t.table_id)}>
+                                  {t.area_name ? `${t.area_name} — ${t.table_name}` : t.table_name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                          <button type="button" onClick={() => loadTables(tableId)} disabled={tablesLoading} className="btn-ghost text-xs">
+                            Neu laden
+                          </button>
+                        </div>
+                        {!posTables.some((t) => t.is_delivery) && (
+                          <p className="text-xs text-amber-400/90">
+                            Delivery-Bereich wurde über die API noch nicht gefunden.
+                            In ready2order zuerst auf „Tag eröffnen“ klicken, dann hier „Neu laden“.
+                            Bis dahin einen Tisch manuell wählen.
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-xs text-amber-400/90">
-                        Kein Tisch über die API erreichbar. Bitte ready2order-Verbindung prüfen.
-                      </p>
-                    )}
-                    {tablesMeta?.usingCheckoutFallback && (
-                      <p className="text-xs text-white/45">
-                        Delivery-Bereich ist in der API nicht sichtbar — es wird der Tisch „Checkout“ verwendet.
+                        Keine Tische geladen. Bitte in ready2order den Tag eröffnen und hier neu laden.
                       </p>
                     )}
                   </div>
