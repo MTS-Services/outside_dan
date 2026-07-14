@@ -158,6 +158,7 @@ export default function DeliveryMapPicker({
     setMapError('');
     setStreetName(parsed.streetName);
     streetNameRef.current = parsed.streetName;
+    onStreetNameChangeRef.current(parsed.streetName);
     if (parsed.houseNumber) {
       houseNumberRef.current = parsed.houseNumber;
       onHouseNumberChangeRef.current(parsed.houseNumber);

@@ -245,10 +245,22 @@ export default function Checkout() {
     if (form.customerName.trim().length < 2) { toast.error('Name ist erforderlich (min. 2 Zeichen)'); return false; }
     if (form.customerPhone.trim().length < 5) { toast.error('Telefon ist erforderlich'); return false; }
     if (!form.deliveryZoneId) { toast.error('Bitte wähle eine Lieferzone aus'); return false; }
-    if (!form.pinSet || !form.streetName.trim()) { toast.error('Bitte Adresse auf der Karte wählen oder eingeben'); return false; }
-    if (!form.houseNumber.trim()) { toast.error('Hausnummer ist erforderlich'); return false; }
-    if (!addressConfirmed) { toast.error('Bitte bestätige zuerst deine Adresse mit „Lieferroute anzeigen“'); return false; }
-    if (deliveryTooFar) { toast.error('Diese Adresse liegt außerhalb des Liefergebiets. Bitte eine nähere Adresse wählen.'); return false; }
+    if (!form.pinSet || !form.streetName.trim()) {
+      toast.error('Bitte Adresse auf der Karte wählen oder eingeben');
+      return false;
+    }
+    if (!form.houseNumber.trim()) {
+      toast.error('Hausnummer ist erforderlich');
+      return false;
+    }
+    if (!addressConfirmed) {
+      toast.error('Bitte bestätige zuerst deine Adresse mit „Lieferroute anzeigen“');
+      return false;
+    }
+    if (deliveryTooFar) {
+      toast.error('Diese Adresse liegt außerhalb des Liefergebiets. Bitte eine nähere Adresse wählen.');
+      return false;
+    }
     if (fullStreet.length < 3) { toast.error('Adresse ist unvollständig'); return false; }
     if (belowMinimum) {
       toast.error(`Mindestbestellwert: €${minimumOrder.toFixed(2)} (aktuell €${sub.toFixed(2)})`);
@@ -588,7 +600,7 @@ export default function Checkout() {
               </div>
             ) : (
               <button
-                disabled={submitting || zonesLoading || couponApplying || belowMinimum || !form.deliveryZoneId || !addressConfirmed || deliveryTooFar}
+                disabled={submitting || zonesLoading || couponApplying || belowMinimum || !infoComplete}
                 type="submit"
                 className="btn-primary w-full justify-center py-4 text-lg shadow-brand disabled:opacity-60 transition-all"
               >
