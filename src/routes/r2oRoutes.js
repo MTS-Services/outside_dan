@@ -23,45 +23,48 @@ router.get('/status', authRequired, requireAdmin, async (req, res) => {
 });
 
 // ─── GET /api/r2o/tables ──────────────────────────────────────────────────────
-// Returns only Delivery-area tables (Delivery 1, Delivery 2, …).
+// Returns POS tables for the booking picker (Delivery first).
 router.get('/tables', authRequired, requireAdmin, async (req, res) => {
   if (!r2o.isConfigured()) {
     return res.status(503).json({ error: 'ready2order nicht verbunden' });
   }
   try {
-    const { tables, meta } = await r2o.listPosTablesWithMeta();
+    const { tables, deliveryTables, meta } = await r2o.listPosTablesWithMeta();
     return res.json({
       tables: tables.map((t) => ({
         table_id: t.table_id,
         table_name: t.table_name || t.name,
+        area_name: t.area_name || '',
+        is_delivery: !!t.is_delivery,
       })),
+      deliveryCount: deliveryTables.length,
       count: tables.length,
       meta,
     });
   } catch (err) {
     const detail = err.response?.data || err.message;
-    return res.status(502).json({ error: 'Delivery-Tische konnten nicht geladen werden', detail });
+    return res.status(502).json({ error: 'Tische konnten nicht geladen werden', detail });
   }
 });
 
 // ─── PUT /api/r2o/sales-mode ──────────────────────────────────────────────────
 router.put('/sales-mode', authRequired, requireAdmin, async (req, res) => {
-  const { salesMode } = req.body || {};
+  const { salesMode, tableId, tableName } = req.body || {};
   if (!['invoice', 'table'].includes(salesMode)) {
     return res.status(400).json({ error: 'Ungültiger Buchungsmodus' });
   }
+  if (salesMode === 'table' && !String(tableId || '').trim()) {
+    return res.status(400).json({ error: 'Bitte einen Tisch auswählen (z. B. Delivery 1)' });
+  }
   await siteSettings.upsertMany({
     r2o_sales_mode: salesMode,
-    // table mode auto-picks the next free Delivery table — no manual selection
-    ...(salesMode === 'invoice' ? { r2o_table_id: '', r2o_table_name: '' } : {}),
+    r2o_table_id: salesMode === 'table' ? String(tableId).trim() : '',
+    r2o_table_name: salesMode === 'table' ? String(tableName || '').trim() : '',
   });
-  const bookingTables = salesMode === 'table' ? await r2o.listBookingTables() : [];
   res.json({
     salesMode,
-    tables: bookingTables.map((t) => ({
-      tableId: String(t.table_id),
-      tableName: String(t.table_name || ''),
-    })),
+    tableId: salesMode === 'table' ? String(tableId).trim() : '',
+    tableName: salesMode === 'table' ? String(tableName || '').trim() : '',
   });
 });
 

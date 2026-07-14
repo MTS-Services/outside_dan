@@ -831,106 +831,87 @@ function deliveryTableSortKey(table) {
 /** Fetch table areas from ready2order. */
 async function listTableAreas() {
   if (!isConfigured()) return [];
-  const { data } = await client.get('/tableAreas', { params: { limit: 100 } });
-  return normalizeR2oList(data);
+  const all = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const { data } = await client.get('/tableAreas', { params: { limit: 100, page } });
+    const rows = normalizeR2oList(data);
+    all.push(...rows);
+    if (rows.length < 100) break;
+  }
+  return all;
 }
 
-/** Fetch all tables from ready2order. */
+/** Fetch all tables from ready2order (with pagination). */
 async function listTables() {
   if (!isConfigured()) return [];
-  const { data } = await client.get('/tables', { params: { limit: 250 } });
-  return normalizeR2oList(data);
+  const all = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const { data } = await client.get('/tables', { params: { limit: 250, page } });
+    const rows = normalizeR2oList(data);
+    all.push(...rows);
+    if (rows.length < 250) break;
+  }
+  return all;
+}
+
+function enrichTablesWithAreas(tables, areas) {
+  const areaById = new Map();
+  for (const area of areas) {
+    const id = r2oId(area.tableArea_id ?? area.id);
+    if (id) areaById.set(id, area);
+  }
+  return tables.map((table) => {
+    const areaId = r2oId(table.tableArea_id ?? table.table_area_id);
+    const area = areaId ? areaById.get(areaId) : null;
+    const areaName = tableAreaLabel(area) || '';
+    const tableName = String(table.table_name || table.name || '');
+    const isDelivery = isDeliveryLabel(areaName)
+      || isDeliveryLabel(area?.tableArea_shortName || area?.shortName || '')
+      || isDeliveryTableName(tableName);
+    return {
+      ...table,
+      table_name: tableName,
+      area_name: areaName,
+      area_id: areaId,
+      is_delivery: isDelivery,
+    };
+  });
 }
 
 /**
- * Return only Delivery-area tables (e.g. Delivery 1 … Delivery 9).
- * Matches by tableArea name/shortName, tableArea_id, or table name.
- * Also returns `meta` for admin diagnostics when nothing matches.
+ * All POS tables for the admin picker, Delivery area first.
  */
-async function listDeliveryTablesWithMeta() {
+async function listPosTablesWithMeta() {
   const [areas, tables] = await Promise.all([listTableAreas(), listTables()]);
-
-  const areaById = new Map();
-  const deliveryAreaIds = new Set();
-  for (const area of areas) {
-    const id = r2oId(area.tableArea_id ?? area.id);
-    if (!id) continue;
-    areaById.set(id, area);
-    const label = tableAreaLabel(area);
-    const short = String(area.tableArea_shortName || area.shortName || '');
-    if (isDeliveryLabel(label) || isDeliveryLabel(short)) {
-      deliveryAreaIds.add(id);
-    }
-  }
-
-  const deliveryTables = tables.filter((table) => {
-    const areaId = r2oId(table.tableArea_id ?? table.table_area_id);
-    if (areaId && deliveryAreaIds.has(areaId)) return true;
-
-    const area = areaId ? areaById.get(areaId) : null;
-    if (area && isDeliveryLabel(tableAreaLabel(area))) return true;
-
-    return isDeliveryTableName(table.table_name || table.name);
-  }).sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
+  const enriched = enrichTablesWithAreas(tables, areas);
+  const delivery = enriched.filter((t) => t.is_delivery)
+    .sort((a, b) => deliveryTableSortKey(a) - deliveryTableSortKey(b));
+  const others = enriched.filter((t) => !t.is_delivery)
+    .sort((a, b) => String(a.table_name).localeCompare(String(b.table_name), 'de'));
 
   const meta = {
     totalAreas: areas.length,
-    totalTables: tables.length,
+    totalTables: enriched.length,
+    deliveryCount: delivery.length,
     areaNames: areas.map((a) => tableAreaLabel(a) || `Area ${a.tableArea_id}`),
-    tableNames: tables.map((t) => String(t.table_name || t.name || `Table ${t.table_id}`)),
   };
 
-  if (!deliveryTables.length && tables.length > 0) {
-    console.warn(
-      '[r2o] POS may show Delivery tables, but the API only returned:',
-      JSON.stringify(meta),
-    );
+  if (!delivery.length && enriched.length > 0) {
+    console.warn('[r2o] No Delivery tables matched via API. Areas:', meta.areaNames.join(', '));
   }
 
-  return { tables: deliveryTables, meta };
+  return { tables: [...delivery, ...others], deliveryTables: delivery, meta };
 }
 
 async function listDeliveryTables() {
-  const { tables } = await listDeliveryTablesWithMeta();
-  return tables;
+  const { deliveryTables } = await listPosTablesWithMeta();
+  return deliveryTables;
 }
 
-/**
- * Tables used for online-order booking only.
- * Prefers Delivery 1–9; otherwise uses the Checkout table — never Bar/Inner/etc.
- */
 async function listBookingTables() {
-  const deliveryTables = await listDeliveryTables();
+  const { tables, deliveryTables } = await listPosTablesWithMeta();
   if (deliveryTables.length) return deliveryTables;
-
-  const allTables = await listTables();
-  const checkout = allTables.find(
-    (t) => String(t.table_name || t.name || '').trim().toLowerCase() === 'checkout',
-  );
-  if (checkout) return [checkout];
-
-  return allTables.length ? [allTables[0]] : [];
-}
-
-/** All tables the ready2order API exposes (used when Delivery area is not in API). */
-async function listPosTablesWithMeta() {
-  const allTables = await listTables();
-  const bookingTables = await listBookingTables();
-  const { meta: deliveryMeta } = await listDeliveryTablesWithMeta();
-
-  const meta = {
-    totalAreas: deliveryMeta.totalAreas,
-    totalTables: allTables.length,
-    areaNames: deliveryMeta.areaNames,
-    bookingTableNames: bookingTables.map((t) => String(t.table_name || t.name || '')),
-    usingCheckoutFallback: bookingTables.length === 1
-      && String(bookingTables[0]?.table_name || '').toLowerCase() === 'checkout',
-  };
-
-  return {
-    tables: bookingTables,
-    meta,
-  };
+  return tables;
 }
 
 /** True when the table still has open (uninvoiced) orders on it. */
@@ -948,35 +929,38 @@ async function tableHasOpenOrders(tableId) {
 
 /**
  * Pick a POS table for an online order.
- * Prefers Delivery tables; falls back to any table the API exposes (e.g. Checkout).
- * Booking on a table avoids a finalized invoice that cannot be deleted.
+ * Uses the admin-selected table when set; otherwise rotates Delivery tables.
  */
 async function pickTableForOrder() {
-  const candidates = await listBookingTables();
+  const [savedId, savedName, { tables, deliveryTables }] = await Promise.all([
+    siteSettings.getSetting('r2o_table_id', ''),
+    siteSettings.getSetting('r2o_table_name', ''),
+    listPosTablesWithMeta(),
+  ]);
 
-  if (!candidates.length) {
-    throw new Error('Keine Tische über die ready2order API verfügbar — bitte Verbindung prüfen');
+  if (savedId) {
+    const match = tables.find((t) => String(t.table_id) === String(savedId));
+    return {
+      tableId: Number(savedId),
+      tableName: match?.table_name || savedName || String(savedId),
+    };
   }
 
-  const deliveryTables = candidates.filter((t) => isDeliveryTableName(t.table_name || t.name));
-  const pool = deliveryTables.length ? deliveryTables : candidates;
+  const pool = deliveryTables.length ? deliveryTables : tables;
+  if (!pool.length) {
+    throw new Error('Keine Tische über die ready2order API verfügbar — bitte Verbindung prüfen');
+  }
 
   for (const table of pool) {
     const occupied = await tableHasOpenOrders(table.table_id);
     if (!occupied) {
-      return {
-        tableId: table.table_id,
-        tableName: table.table_name || table.name,
-      };
+      return { tableId: table.table_id, tableName: table.table_name };
     }
   }
 
   const fallback = pool[0];
   console.warn(`[r2o] All booking tables occupied — using ${fallback.table_name}`);
-  return {
-    tableId: fallback.table_id,
-    tableName: fallback.table_name || fallback.name,
-  };
+  return { tableId: fallback.table_id, tableName: fallback.table_name };
 }
 
 /**
@@ -1087,7 +1071,6 @@ module.exports = {
   syncOrderToR2o,
   listTables,
   listDeliveryTables,
-  listDeliveryTablesWithMeta,
   listPosTablesWithMeta,
   listBookingTables,
   pickTableForOrder,
