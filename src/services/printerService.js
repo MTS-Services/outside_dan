@@ -59,6 +59,11 @@ async function printOrderTicket(order) {
     printer.bold(false);
     printer.println(`Time:  ${new Date(order.createdAt).toLocaleString()}`);
     printer.println(`Type:  DELIVERY`);
+    if (order.acceptanceNote) {
+      printer.bold(true);
+      printer.println(`Lieferzeit: ${order.acceptanceNote}`);
+      printer.bold(false);
+    }
     printer.drawLine();
 
     printer.bold(true);

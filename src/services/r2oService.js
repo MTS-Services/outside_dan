@@ -392,6 +392,7 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
   if (order.customerPhone) receiptInfoLines.push(`Tel: ${order.customerPhone}`);
   if (order.customerEmail) receiptInfoLines.push(`Email: ${order.customerEmail}`);
   if (infoAddress) receiptInfoLines.push(`Adr: ${infoAddress}`);
+  if (order.acceptanceNote) receiptInfoLines.push(`Lieferzeit: ${order.acceptanceNote}`);
   if (order.notes) receiptInfoLines.push(`Hinweis: ${order.notes}`);
   if (order.paypalOrderId) receiptInfoLines.push(`PayPal: ${order.paypalOrderId}`);
 
@@ -438,6 +439,7 @@ async function buildInvoicePayload(order, { tableId } = {}) {
   if (order.customerEmail) notesParts.push(`Email: ${order.customerEmail}`);
   const addressParts = [order.street, order.postalCode, order.city].filter(Boolean).join(', ');
   if (addressParts) notesParts.push(`Adresse: ${addressParts}`);
+  if (order.acceptanceNote) notesParts.push(`Lieferzeit: ${order.acceptanceNote}`);
   if (order.notes) notesParts.push(`Hinweis: ${order.notes}`);
   notesParts.push(`Zahlung: ${order.paymentMethod}`);
   if (order.couponCode && discount > 0) notesParts.push(`Gutschein: ${order.couponCode} (-€${discount.toFixed(2)})`);

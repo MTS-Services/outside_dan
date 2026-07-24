@@ -49,14 +49,25 @@ const ORDER_INCLUDE = {
   coupon: { select: { r2oCouponId: true, r2oDiscountId: true } },
 };
 
+/**
+ * Opaque order reference (e.g. ORD-K7M2XQ).
+ * No date and no sequential count — customers cannot see daily volume.
+ */
 async function generateOrderNumber() {
-  const today = new Date();
-  const ymd = today.getFullYear().toString()
-    + String(today.getMonth() + 1).padStart(2, '0')
-    + String(today.getDate()).padStart(2, '0');
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const count = await prisma.order.count({ where: { createdAt: { gte: start } } });
-  return `ORD-${ymd}-${String(count + 1).padStart(3, '0')}`;
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+  for (let attempt = 0; attempt < 12; attempt++) {
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    const orderNumber = `ORD-${code}`;
+    const exists = await prisma.order.findUnique({
+      where: { orderNumber },
+      select: { id: true },
+    });
+    if (!exists) return orderNumber;
+  }
+  throw new ApiError(500, 'Bestellnummer konnte nicht erzeugt werden');
 }
 
 /**
@@ -305,9 +316,15 @@ async function acceptOrder(id, { acceptanceNote, userId } = {}) {
     throw new ApiError(400, `Bestellung kann im Status ${order.status} nicht angenommen werden`);
   }
 
+  // Include acceptance note for R2O receipt (Kundeninfo / invoice text) before DB update
+  const orderForSync = {
+    ...order,
+    acceptanceNote: acceptanceNote || order.acceptanceNote || null,
+  };
+
   let r2oResult = { invoiceId: null, receiptNo: null };
   try {
-    r2oResult = await r2o.syncOrderToR2o(order);
+    r2oResult = await r2o.syncOrderToR2o(orderForSync);
   } catch (err) {
     console.warn('[r2o] Sync fehlgeschlagen:', err.message);
     const code = err.response?.data?.code || err.response?.data?.details?.code;
