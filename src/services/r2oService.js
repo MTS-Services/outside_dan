@@ -303,43 +303,37 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
       it.menuItem?.r2oProductId ||
       (await resolveProductId(it.name, Number(it.price), itemVatId));
 
-    // Build item name — append note if present
-    const itemName = it.notes
-      ? `${it.name} (${it.notes})`
+    // Match normal ready2order POS receipt style:
+    //   1x MARGHERITA (+ Salami, + Mais)     <price including extras>
+    // One line per product — extras named in parentheses, price folded in.
+    // (Separate "Extra:" lines confuse the receipt and sort badly in r2o.)
+    const modifiers = [];
+    if (it.notes) modifiers.push(it.notes);
+    if (it.extras?.length) {
+      for (const ex of it.extras) {
+        modifiers.push(`+ ${ex.name}`);
+      }
+    }
+
+    const itemName = modifiers.length
+      ? `${it.name} (${modifiers.join(', ')})`
       : it.name;
 
-    // Extras listed in item_comment for A4 / POS views that show comments.
-    const extraComment = (it.extras && it.extras.length)
-      ? it.extras.map((ex) => `+ ${ex.name}`).join('\n')
-      : null;
+    let unitPrice = Number(it.price);
+    if (it.extras?.length) {
+      for (const ex of it.extras) {
+        unitPrice += Number(ex.price);
+      }
+    }
+    unitPrice = Math.round(unitPrice * 100) / 100;
 
     items.push({
       product_id: productId,
       item_name: itemName,
-      item_price: Number(it.price),
+      item_price: unitPrice,
       item_quantity: it.quantity,
-      ...(extraComment ? { item_comment: extraComment } : {}),
       ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
     });
-
-    // Add each extra as its own priced line item.
-    // r2o sorts receipt lines alphabetically by item_name (submission order
-    // is ignored). Prefix with the parent product name so extras sort
-    // directly under that product instead of all clumping under "Extra:".
-    if (it.extras && it.extras.length) {
-      for (const ex of it.extras) {
-        const exProductId = await resolveProductId(
-          `Extra: ${ex.name}`, Number(ex.price), itemVatId
-        );
-        items.push({
-          product_id: exProductId,
-          item_name: `${itemName} + ${ex.name}`,
-          item_price: Number(ex.price),
-          item_quantity: ex.quantity || it.quantity,
-          ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
-        });
-      }
-    }
   }
 
   // Add delivery as a line item with 0% VAT (it's a service, not food)
