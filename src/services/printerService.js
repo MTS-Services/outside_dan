@@ -92,6 +92,16 @@ async function printOrderTicket(order) {
         { text: formatMoney(Number(it.price) * it.quantity), align: 'RIGHT', width: 0.25 },
       ]);
       if (it.notes) printer.println(`  > ${it.notes}`);
+      if (it.extras?.length) {
+        for (const ex of it.extras) {
+          const exQty = ex.quantity || it.quantity;
+          printer.tableCustom([
+            { text: `  + ${ex.name}`, align: 'LEFT', width: 0.6 },
+            { text: String(exQty), align: 'CENTER', width: 0.15 },
+            { text: formatMoney(Number(ex.price) * exQty), align: 'RIGHT', width: 0.25 },
+          ]);
+        }
+      }
     }
     printer.drawLine();
 

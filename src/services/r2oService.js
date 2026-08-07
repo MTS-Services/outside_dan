@@ -308,15 +308,24 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
       ? `${it.name} (${it.notes})`
       : it.name;
 
+    // Extras listed in item_comment for A4 / POS views that show comments.
+    const extraComment = (it.extras && it.extras.length)
+      ? it.extras.map((ex) => `+ ${ex.name}`).join('\n')
+      : null;
+
     items.push({
       product_id: productId,
       item_name: itemName,
       item_price: Number(it.price),
       item_quantity: it.quantity,
+      ...(extraComment ? { item_comment: extraComment } : {}),
       ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
     });
 
-    // Add each extra as its own line item
+    // Add each extra as its own priced line item.
+    // r2o sorts receipt lines alphabetically by item_name (submission order
+    // is ignored). Prefix with the parent product name so extras sort
+    // directly under that product instead of all clumping under "Extra:".
     if (it.extras && it.extras.length) {
       for (const ex of it.extras) {
         const exProductId = await resolveProductId(
@@ -324,7 +333,7 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
         );
         items.push({
           product_id: exProductId,
-          item_name: `Extra: ${ex.name}`,
+          item_name: `${itemName} + ${ex.name}`,
           item_price: Number(ex.price),
           item_quantity: ex.quantity || it.quantity,
           ...(itemVatId !== undefined ? { item_vatId: itemVatId } : {}),
@@ -980,14 +989,19 @@ async function createTableOrderForOrder(order, tableId, tableName = '') {
   const payload = {
     table_id: Number(tableId),
     price_base: 'gross',
-    items: lineItems.map((it) => ({
-      product_id: it.product_id,
-      item_name: it.item_name,
-      item_price: String(it.item_price),
-      item_quantity: String(it.item_quantity),
-      ...(it.item_vatId !== undefined ? { item_vatId: it.item_vatId } : {}),
-      ...(order.orderNumber ? { item_comment: `Online-Bestellung ${order.orderNumber}` } : {}),
-    })),
+    items: lineItems.map((it) => {
+      const commentParts = [];
+      if (it.item_comment) commentParts.push(it.item_comment);
+      if (order.orderNumber) commentParts.push(`Online-Bestellung ${order.orderNumber}`);
+      return {
+        product_id: it.product_id,
+        item_name: it.item_name,
+        item_price: String(it.item_price),
+        item_quantity: String(it.item_quantity),
+        ...(it.item_vatId !== undefined ? { item_vatId: it.item_vatId } : {}),
+        ...(commentParts.length ? { item_comment: commentParts.join('\n') } : {}),
+      };
+    }),
   };
 
   try {
