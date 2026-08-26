@@ -48,12 +48,14 @@ const _cache = {
   vatId: undefined,
   zeroVatId: undefined,
   productGroupId: undefined,
+  extrasProductGroupId: undefined,
   customerCategoryId: undefined,
   products: {}, // name -> product_id
   _usersFetched: false,
   _vatFetched: false,
   _zeroVatFetched: false,
   _pgFetched: false,
+  _extrasPgFetched: false,
   _ccFetched: false,
 };
 
@@ -112,18 +114,18 @@ async function resolveDefaultVatId() {
   return _cache.vatId;
 }
 
-/** Find the 0% VAT rate ID — used for delivery (service, not food). */
+/** Find the 0% VAT rate ID — used for delivery and zero-price info lines (Kundeninfo). */
 async function resolveZeroVatId() {
   if (_cache._zeroVatFetched) return _cache.zeroVatId;
   try {
     const { data } = await client.get('/vat-rates');
     const rates = Array.isArray(data) ? data : [];
-    // Look for a rate whose value is 0
     const zero = rates.find((r) => {
       const v = r.vat_value ?? r.value ?? r.vat_percentage ?? r.rate;
       return Number(v) === 0;
     });
-    _cache.zeroVatId = zero ? (zero.id ?? zero.vat_id) : undefined;
+    // Same ID field order as AdminMenu / resolveDefaultVatId (vat_id is what item_vatId expects).
+    _cache.zeroVatId = zero ? (zero.vat_id ?? zero.id) : undefined;
   } catch {
     _cache.zeroVatId = undefined;
   }
@@ -140,6 +142,27 @@ async function resolveDefaultProductGroupId() {
   _cache.productGroupId = regular ? regular.productgroup_id : undefined;
   _cache._pgFetched = true;
   return _cache.productGroupId;
+}
+
+/** Extras group — for non-food lines like Lieferung and Kundeninfo (not Antipasti/food). */
+async function resolveExtrasProductGroupId() {
+  if (_cache._extrasPgFetched) return _cache.extrasProductGroupId;
+  const { data } = await client.get('/productgroups');
+  const groups = Array.isArray(data) ? data : [];
+  const extras = groups.find((g) => {
+    const name = (g.productgroup_name || g.name || '').trim().toLowerCase();
+    return name === 'extras' || name === 'extra';
+  });
+  _cache.extrasProductGroupId = extras
+    ? (extras.productgroup_id ?? extras.id)
+    : undefined;
+  _cache._extrasPgFetched = true;
+  if (!_cache.extrasProductGroupId) {
+    // eslint-disable-next-line no-console
+    console.warn('[r2o] Extras product group not found — falling back to default group');
+    return resolveDefaultProductGroupId();
+  }
+  return _cache.extrasProductGroupId;
 }
 
 async function resolveDefaultCustomerCategoryId() {
@@ -162,7 +185,7 @@ async function resolveDefaultCustomerCategoryId() {
  * Look up an existing r2o product by name, or create one with custom price enabled.
  * Caches result so each unique item name is only created once per process lifetime.
  */
-async function resolveProductId(name, price, vatId) {
+async function resolveProductId(name, price, vatId, { productGroupId } = {}) {
   if (_cache.products[name] !== undefined) return _cache.products[name];
 
   // Search by name
@@ -172,11 +195,27 @@ async function resolveProductId(name, price, vatId) {
   );
   if (existing) {
     _cache.products[name] = existing.product_id;
+    const currentPg = existing.productgroup_id ?? existing.productGroup_id;
+    if (productGroupId && currentPg && Number(currentPg) !== Number(productGroupId)) {
+      try {
+        await client.put(`/products/${existing.product_id}`, {
+          productgroup_id: productGroupId,
+          product_stock_value: existing.product_stock_value ?? '0',
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[r2o] could not move "${name}" to product group ${productGroupId}:`,
+          err.response?.status,
+          err.response?.data || err.message
+        );
+      }
+    }
     return existing.product_id;
   }
 
   // Create a new product with custom price / quantity so invoice items can override them
-  const pgId = await resolveDefaultProductGroupId();
+  const pgId = productGroupId ?? (await resolveDefaultProductGroupId());
   const createPayload = {
     product_name: name,
     product_price: price,
@@ -294,6 +333,8 @@ async function resolveCustomerId(order) {
  */
 async function buildOrderLineItems(order, { vatId, zeroVatId }) {
   const items = [];
+  const extrasPgId = await resolveExtrasProductGroupId();
+  const extrasProductOpts = { productGroupId: extrasPgId };
   // Process items sequentially (not concurrently) so the array order is
   // deterministic — Kundeninfo is pushed after this loop and must be last.
   for (const it of order.items) {
@@ -339,7 +380,12 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
   // Add delivery as a line item with 0% VAT (it's a service, not food)
   const deliveryFee = Number(order.deliveryFee || 0);
   if (deliveryFee > 0) {
-    const deliveryProductId = await resolveProductId('Lieferung', deliveryFee, zeroVatId);
+    const deliveryProductId = await resolveProductId(
+      'Lieferung',
+      deliveryFee,
+      zeroVatId,
+      extrasProductOpts
+    );
     items.push({
       product_id: deliveryProductId,
       item_name: 'Lieferung',
@@ -403,14 +449,19 @@ async function buildOrderLineItems(order, { vatId, zeroVatId }) {
     // r2o sorts receipt line items alphabetically by item_name, ignoring
     // submission order. Prefix with "zzz " so this entry always renders last
     // (after any food item starting A–Z, including "ZEPPOLINE").
-    const infoProductId = await resolveProductId('zzz_Kundeninfo', 0, vatId);
+    const infoProductId = await resolveProductId(
+      'zzz_Kundeninfo',
+      0,
+      zeroVatId,
+      extrasProductOpts
+    );
     items.push({
       product_id: infoProductId,
       item_name: `zzz Kundeninfo\n${receiptInfoLines.join('\n')}`,
       item_price: 0,
       item_quantity: 1,
       item_sort: 9999,
-      ...(vatId !== undefined ? { item_vatId: vatId } : {}),
+      ...(zeroVatId !== undefined ? { item_vatId: zeroVatId } : {}),
     });
   }
 
@@ -600,12 +651,14 @@ function clearR2oAccountCaches() {
   _cache.vatId = undefined;
   _cache.zeroVatId = undefined;
   _cache.productGroupId = undefined;
+  _cache.extrasProductGroupId = undefined;
   _cache.customerCategoryId = undefined;
   _cache.products = {};
   _cache._usersFetched = false;
   _cache._vatFetched = false;
   _cache._zeroVatFetched = false;
   _cache._pgFetched = false;
+  _cache._extrasPgFetched = false;
   _cache._ccFetched = false;
 }
 
