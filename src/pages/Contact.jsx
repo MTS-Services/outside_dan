@@ -129,6 +129,8 @@ export default function Contact() {
         {(() => {
           const address = siteSettings.restaurant_address || 'Sonnenweg 11, 8793 Trofaiach';
           const addressLines = address.split(',').map((l) => l.trim()).filter(Boolean);
+          const phone = siteSettings.restaurant_phone || '+43 676 632 86 77';
+          const email = siteSettings.restaurant_email || 'reservierung@tarantella.at';
           return [
             {
               icon: 'pin',
@@ -139,13 +141,15 @@ export default function Contact() {
             {
               icon: 'phone',
               label: 'Telefon',
-              lines: [siteSettings.restaurant_phone || '+43 676 632 86 77'],
+              lines: [phone],
+              href: `tel:${phone.replace(/\s/g, '')}`,
               hint: 'Für Reservierungen und Anfragen',
             },
             {
               icon: 'mail',
               label: 'E-Mail',
-              lines: [siteSettings.restaurant_email || 'reservierung@tarantella.at'],
+              lines: [email],
+              href: `mailto:${email}`,
               hint: 'Wir antworten so schnell wie möglich.',
             },
           ];
@@ -155,7 +159,15 @@ export default function Contact() {
               <Icon name={c.icon} className="w-7 h-7" />
             </div>
             <div className="text-xs uppercase tracking-widest text-brand-400 mb-2">{c.label}</div>
-            {c.lines.map((l) => <div key={l} className="text-white/80 font-medium">{l}</div>)}
+            {c.lines.map((l) =>
+              c.href ? (
+                <a key={l} href={c.href} className="text-white/80 font-medium hover:text-brand-300 transition">
+                  {l}
+                </a>
+              ) : (
+                <div key={l} className="text-white/80 font-medium">{l}</div>
+              ),
+            )}
             {c.hint && <p className="text-white/50 text-sm mt-2 leading-relaxed">{c.hint}</p>}
           </div>
         ))}
