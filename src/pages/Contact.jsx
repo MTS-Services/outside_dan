@@ -153,24 +153,24 @@ export default function Contact() {
               hint: 'Wir antworten so schnell wie möglich.',
             },
           ];
-        })().map((c) => (
-          <div key={c.label} className="info-card card p-6 flex flex-col items-center text-center hover:border-brand-500/30 transition-colors">
-            <div className="w-14 h-14 grid place-items-center rounded-2xl bg-brand-500/15 border border-brand-500/20 text-brand-400 mb-4">
-              <Icon name={c.icon} className="w-7 h-7" />
-            </div>
-            <div className="text-xs uppercase tracking-widest text-brand-400 mb-2">{c.label}</div>
-            {c.lines.map((l) =>
-              c.href ? (
-                <a key={l} href={c.href} className="text-white/80 font-medium hover:text-brand-300 transition">
-                  {l}
-                </a>
-              ) : (
+        })().map((c) => {
+          const CardTag = c.href ? 'a' : 'div';
+          const cardProps = c.href
+            ? { href: c.href, className: 'info-card card p-6 flex flex-col items-center text-center hover:border-brand-500/30 transition-colors cursor-pointer' }
+            : { className: 'info-card card p-6 flex flex-col items-center text-center hover:border-brand-500/30 transition-colors' };
+          return (
+            <CardTag key={c.label} {...cardProps}>
+              <div className="w-14 h-14 grid place-items-center rounded-2xl bg-brand-500/15 border border-brand-500/20 text-brand-400 mb-4">
+                <Icon name={c.icon} className="w-7 h-7" />
+              </div>
+              <div className="text-xs uppercase tracking-widest text-brand-400 mb-2">{c.label}</div>
+              {c.lines.map((l) => (
                 <div key={l} className="text-white/80 font-medium">{l}</div>
-              ),
-            )}
-            {c.hint && <p className="text-white/50 text-sm mt-2 leading-relaxed">{c.hint}</p>}
-          </div>
-        ))}
+              ))}
+              {c.hint && <p className="text-white/50 text-sm mt-2 leading-relaxed">{c.hint}</p>}
+            </CardTag>
+          );
+        })}
       </section>
 
       {/* FORM + HOURS */}
